@@ -12,6 +12,7 @@
 # WMO-No. 306
 # 2011 edition
 # Updated in 2012
+# ftp://ftp.wmo.int/Documents/MediaPublic/Publications/CodesManual_WMO_No_306/WMO306_Vol_I.1_2012_en.pdf (accessed 20130528)
 #
 # from page A-27 to A-38
 
@@ -108,7 +109,7 @@ metar_decoder = function(metar_string)
   SPECI = F
   COR = F
   ICAO_location_indicator = ""
-    
+  
   if ( groups[1] == "METAR") {
     METAR = T
     SPECI = F
