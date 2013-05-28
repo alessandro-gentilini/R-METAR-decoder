@@ -21,10 +21,21 @@
 # http://www.wunderground.com/metarFAQ.asp
 wu = "METAR  KORD	041656Z	19020G26KT	6SM	-SHRA	BKN070	12/08	A3016	RMK AO2"
 
+# http://aviationweather.gov/adds/metars/
+lipe = "LIPE 282020Z 13006KT 9999 FEW080 15/13 Q1004"
+live = "LIVE 281955Z 16005KT 9999 BKN030 08/05 Q1004 RMK BKN VIS MIN 9999"
+birk = "BIRK 282000Z 17009KT 9999 FEW032 SCT050 10/04 Q1009"
+llbg = "LLBG 282020Z VRB03KT CAVOK 22/16 Q1016 NOSIG"
+licr = "LICR 281950Z 02016KT 9999 FEW035 20/13 Q1004 RMK VIS MIN 9999"
+kslc = "KSLC 282040Z 29006KT 5SM +RA BR SCT011 BKN020 OVC041 12/10 A2983 RMK AO2 P0012"
+eidw = "EIDW 282030Z 35007KT 9999 FEW015 BKN100 09/07 Q1004 NOSIG"
+
 
 
 ICAO_station_length = 4
 YYGGggZ_length = 7
+wind_variation_lenght = 7
+
 
 extract_ICAO_location_indicator = function(CCCC)
 {
@@ -50,6 +61,7 @@ extract_ddhhmm = function(YYGGggZ)
 
 extract_wind_info = function(dddffGfmfm)
 {
+  # todo: 15.5.6
   CALM = F
   VRB = F
   direction = NA
@@ -183,9 +195,32 @@ metar_decoder = function(metar_string)
   gust_speed = wind_info$gust_speed
   wind_speed_UOM = wind_info$wind_speed_UOM
   
-  print(paste("CALM",CALM))
-  data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,VRB,direction,speed,GUST,gust_speed,wind_speed_UOM)
+  WIND_DIRECTION_VARIATION = F
+  extreme_wind_direction_n = NA
+  extreme_wind_direction_x = NA
+  if (nchar(groups[next_index])==wind_variation_lenght && substr(groups[next_index],4,4)=='V'){
+    WIND_DIRECTION_VARIATION = T
+    extreme_wind_direction_n = as.numeric(substr(groups[next_index],1,3))
+    extreme_wind_direction_x = as.numeric(substr(groups[next_index],5,7))
+  } else {
+    WIND_DIRECTION_VARIATION = F
+    extreme_wind_direction_n = NA
+    extreme_wind_direction_x = NA
+    # todo: 15.6
+  }
+  
+  data.frame(METAR,SPECI,COR,ICAO_location_indicator,
+             day,hour,minute,
+             NIL,AUTO,
+             CALM,VRB,direction,speed,GUST,gust_speed,wind_speed_UOM,
+             WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x)
 }
 
-str(metar_decoder(wu))
-
+print(metar_decoder(wu))
+print(metar_decoder(lipe))
+print(metar_decoder(live))
+print(metar_decoder(birk))
+print(metar_decoder(llbg))
+print(metar_decoder(licr))
+print(metar_decoder(kslc))
+print(metar_decoder(eidw))
