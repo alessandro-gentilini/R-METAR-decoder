@@ -279,6 +279,8 @@ metar_decoder = function(metar_string,low_visibility=1/32)
     stop(paste("Expected visibility group, found",groups[next_index]))
   }
   
+  # todo: 15.6.2
+  
   
   data.frame(METAR,SPECI,COR,ICAO_location_indicator,
              day,hour,minute,
