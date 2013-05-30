@@ -303,3 +303,126 @@ print(metar_decoder(klxv))
 print(metar_decoder(klxv_1))
 print(metar_decoder(klxv_2))
 print(metar_decoder(kccu))
+
+recognize_METAR = function(field)
+{
+  return(grepl("METAR",field,fixed=T))
+}
+
+extract_METAR = function(field)
+{
+  return(grepl("METAR",field,fixed=T))
+}
+
+recognize_SPECI = function(field)
+{
+  return(grepl("SPECI",field,fixed=T))
+}
+
+extract_SPECI = function(field)
+{
+  return(grepl("SPECI",field,fixed=T))
+}
+
+recognize_COR = function(field)
+{
+  return(grepl("COR",field,fixed=T))
+}
+
+extract_COR = function(field)
+{
+  return(grepl("COR",field,fixed=T))
+}
+
+recognize_ICAO_location_indicator = function(field)
+{
+  return(grepl("[A-Z][A-Z][A-Z][A-Z]",field))
+}
+
+extract_ICAO_location_indicator = function(field)
+{
+  return(field)
+}
+
+recognize_timestamp = function(field)
+{
+  return(grepl("[0-9][0-9][0-9][0-9][0-9][0-9]Z",field))
+}
+
+extract_timestamp = function(field)
+{
+  dd = as.numeric(substr(field,1,2))
+  hh = as.numeric(substr(field,3,4))
+  mm = as.numeric(substr(field,5,6))
+  return(data.frame(dd,hh,mm))
+}
+
+
+
+parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
+{
+  data = NA
+  if ( recognizer(field) ) {
+    data = extractor(field)
+    index = index + 1  
+  } else {
+    if ( is_compulsory ) {
+      stop(sprintf("Expected compulsory field '%s', found '%s'.",field_description,field))
+    }  
+  }
+  return(data.frame(data,index))
+}
+
+fix_white_space_in_FMH_visibility = function(metar_string)
+{
+  re1="\\d";  # Any Single Digit 1
+  re2="(\\s+)";  # White Space 1
+  re3="\\d";  # Any Single Digit 2
+  re4="\\/";  # Any Single Character 1
+  re5="\\d";	# Any Single Digit 3
+  re6="S";	# Any Single Word Character (Not Whitespace) 1
+  re7="M";	# Any Single Word Character (Not Whitespace) 2
+  re = paste(re1,re2,re3,re4,re5,re6,re7,sep="")
+  result = regexec(re,metar_string)
+  if ( result[[1]][[1]] != -1 ) {
+    white_space_position = result[[1]][[2]]
+    substr(metar_string,white_space_position,white_space_position) = '+'
+  }
+  return(metar_string)
+}
+
+live = "LIVE 281955Z 16005KT 9999 BKN030 08/05 Q1004 RMK BKN VIS MIN 9999"
+
+metar_decoder_2 = function(metar_string,low_visibility=1/32)
+{
+  metar_string = fix_white_space_in_FMH_visibility(metar_string)
+  groups = scan(what=character(),text=metar_string)
+  
+  METAR = NA
+  df = parse_field(groups[1],1,recognize_METAR,extract_METAR,F, "METAR")
+  METAR = df$data
+  
+  SPECI = NA
+  df = parse_field(groups[df$index],df$index,recognize_SPECI,extract_SPECI,F, "SPECI")
+  SPECI = df$data
+  
+  COR = NA
+  df = parse_field(groups[df$index],df$index,recognize_COR,extract_COR,F, "COR")
+  COR = df$data
+  
+  ICAO_location_indicator = NA
+  df = parse_field(groups[df$index],df$index,recognize_ICAO_location_indicator,extract_ICAO_location_indicator,T, "ICAO_location_indicator")
+  ICAO_location_indicator = df$data
+  
+  day = NA
+  hour = NA
+  minute = NA
+  df = parse_field(groups[df$index],df$index,recognize_timestamp,extract_timestamp,T, "timestamp")
+  day = df$dd
+  hour = df$hh
+  minute = df$mm
+  
+  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute))
+}
+
+print(metar_decoder_2(live))
