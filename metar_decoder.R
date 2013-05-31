@@ -357,7 +357,64 @@ extract_timestamp = function(field)
   return(data.frame(dd,hh,mm))
 }
 
+recognize_NIL = function(field)
+{
+  return(grepl("NIL",field,fixed=T))
+}
 
+extract_NIL = function(field)
+{
+  return(grepl("NIL",field,fixed=T))
+}
+
+recognize_AUTO = function(field)
+{
+  return(grepl("AUTO",field,fixed=T))
+}
+
+extract_AUTO = function(field)
+{
+  return(grepl("AUTO",field,fixed=T))
+}
+
+recognize_wind = function(field)
+{
+  return( grepl("00000KT" ,field,fixed=T) || 
+          grepl("00000MPS",field,fixed=T) ||
+          grepl("[0-9][0-9][0-9][0-9][0-9]KT" , field) ||
+          grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) || 
+          grepl("VRB[0-9][0-9]KT" , field) ||
+          grepl("VRB[0-9][0-9]MPS", field) ||
+          grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ||
+          grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) 
+          
+  )
+}
+
+extract_wind = function(field)
+{
+  CALM = F
+  UOM = "MPS"
+  speed = NA
+  direction = NA
+  if( grepl("00000KT",field,fixed=T) ) {
+    CALM = T
+    UOM = "KT"
+  } else if( grepl("00000MPS",field,fixed=T) ) {
+    CALM = T
+    UOM = "MPS"
+  } else if( grepl("[0-9][0-9][0-9][0-9][0-9]KT" , field) ) {
+    res = regexec("([0-9][0-9][0-9])([0-9][0-9])KT", field)
+    speed = regmatches(field,res)[[1]][[2]]
+    direction = regmatches(field,res)[[1]][[3]]
+  } else if( grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) ) {
+  } else if( grepl("VRB[0-9][0-9]KT" , field) ) {
+  } else if( grepl("VRB[0-9][0-9]MPS", field) ) {
+  } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ) {
+  } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) ) {
+  }
+  return(data.frame(CALM,UOM,speed,direction))
+}
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -391,7 +448,7 @@ fix_white_space_in_FMH_visibility = function(metar_string)
   return(metar_string)
 }
 
-live = "LIVE 281955Z 16005KT 9999 BKN030 08/05 Q1004 RMK BKN VIS MIN 9999"
+
 
 metar_decoder_2 = function(metar_string,low_visibility=1/32)
 {
@@ -422,7 +479,39 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
   hour = df$hh
   minute = df$mm
   
-  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute))
+  NIL = NA
+  df = parse_field(groups[df$index],df$index,recognize_NIL,extract_NIL,F, "NIL")
+  NIL = df$data  
+  
+  AUTO = NA
+  df = parse_field(groups[df$index],df$index,recognize_AUTO,extract_AUTO,F, "AUTO")
+  AUTO = df$data  
+  
+  CALM = F
+  UOM = "MPS"
+  speed = NA
+  direction = NA
+  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,F, "AUTO")
+  CALM = df$CALM
+  UOM = df$UOM
+  speed = df$speed
+  direction = df$direction
+  
+  print(metar_string)
+  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction))
 }
 
+print(metar_decoder_2(wu))
+print(metar_decoder_2(lipe))
 print(metar_decoder_2(live))
+print(metar_decoder_2(live_1))
+print(metar_decoder_2(birk))
+print(metar_decoder_2(llbg))
+print(metar_decoder_2(licr))
+print(metar_decoder_2(kslc))
+print(metar_decoder_2(eidw))
+print(metar_decoder_2(paed))
+print(metar_decoder_2(klxv))
+print(metar_decoder_2(klxv_1))
+print(metar_decoder_2(klxv_2))
+print(metar_decoder_2(kccu))
