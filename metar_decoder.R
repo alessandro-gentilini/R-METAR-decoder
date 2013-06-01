@@ -397,6 +397,9 @@ extract_wind = function(field)
   UOM = "MPS"
   speed = NA
   direction = NA
+  VRB = F
+  GUST = F
+  gust_speed = NA
   if( grepl("00000KT",field,fixed=T) ) {
     CALM = T
     UOM = "KT"
@@ -405,15 +408,40 @@ extract_wind = function(field)
     UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]KT" , field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])KT", field)
-    speed = regmatches(field,res)[[1]][[2]]
-    direction = regmatches(field,res)[[1]][[3]]
+    direction = regmatches(field,res)[[1]][[2]]
+    speed = regmatches(field,res)[[1]][[3]]
+    UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) ) {
+    res = regexec("([0-9][0-9][0-9])([0-9][0-9])MPS", field)
+    direction = regmatches(field,res)[[1]][[2]]    
+    speed = regmatches(field,res)[[1]][[3]]
+    UOM = "MPS"
   } else if( grepl("VRB[0-9][0-9]KT" , field) ) {
+    res = regexec("VRB([0-9][0-9])KT", field)
+    speed = regmatches(field,res)[[1]][[2]]
+    VRB = T
+    UOM = "KT"
   } else if( grepl("VRB[0-9][0-9]MPS", field) ) {
+    res = regexec("VRB([0-9][0-9])MPS", field)
+    speed = regmatches(field,res)[[1]][[2]]
+    VRB = T
+    UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ) {
+    res = regexec("([0-9][0-9][0-9])([0-9][0-9])G([0-9][0-9])KT" , field)
+    direction = regmatches(field,res)[[1]][[2]]
+    speed = regmatches(field,res)[[1]][[3]]
+    gust_speed = regmatches(field,res)[[1]][[4]]
+    GUST = T
+    UOM = "KT"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) ) {
+    res = regexec("([0-9][0-9][0-9])([0-9][0-9])G([0-9][0-9])MPS" , field)
+    direction = regmatches(field,res)[[1]][[2]]
+    speed = regmatches(field,res)[[1]][[3]]
+    gust_speed = regmatches(field,res)[[1]][[4]]
+    GUST = T
+    UOM = "MPS"
   }
-  return(data.frame(CALM,UOM,speed,direction))
+  return(data.frame(CALM,UOM,speed,direction,VRB,GUST,gust_speed))
 }
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
@@ -491,14 +519,20 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
   UOM = "MPS"
   speed = NA
   direction = NA
+  VRB = F
+  GUST = F
+  gust_speed = NA
   df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,F, "AUTO")
   CALM = df$CALM
   UOM = df$UOM
   speed = df$speed
   direction = df$direction
+  VRB = df$VRB
+  GUST = df$GUST
+  gust_speed = df$gust_speed
   
   print(metar_string)
-  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction))
+  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction,VRB,GUST,gust_speed))
 }
 
 print(metar_decoder_2(wu))
