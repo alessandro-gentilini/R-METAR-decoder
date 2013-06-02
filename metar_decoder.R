@@ -35,10 +35,10 @@
 
 # Some METAR samples:
 
-# http://www.wunderground.com/metarFAQ.asp
+# http://www.wunderground.com/metarFAQ.asp (accessed 20130529)
 wu = "METAR  KORD	041656Z	19020G26KT	6SM	-SHRA	BKN070	12/08	A3016	RMK AO2"
 
-# http://aviationweather.gov/adds/metars/
+# http://aviationweather.gov/adds/metars/ 
 lipe = "LIPE 282020Z 13006KT 9999 FEW080 15/13 Q1004"
 live = "LIVE 281955Z 16005KT 9999 BKN030 08/05 Q1004 RMK BKN VIS MIN 9999"
 live_1 = "LIVE 291055Z 02006KT 3000 -RA BR SCT010 BKN020 03/M01 Q0999 RMK OVC VIS MIN 3000"
@@ -52,6 +52,9 @@ klxv = "KLXV 291130Z AUTO 07005KT 1/4SM +SN FG VV010 00/M01 A2991 RMK AO2 P0002 
 klxv_1 = "KLXV 291114Z AUTO 36003KT 3/4SM -SN BKN019 OVC035 01/M02 A2992 RMK AO2 P0000 FZRANO"
 klxv_2 = "KLXV 291110Z AUTO 33004KT 2 1/2SM -SN BKN024 OVC035 01/M02 A2991 RMK AO2 P0000"
 kccu = "KCCU 291112Z AUTO 24009KT 180V280 1 3/4SM -SN BKN002 BKN006 OVC011 01/M01 A2998 RMK AO2 LTG DSNT NE"
+
+# http://en.wikipedia.org/wiki/METAR (accessed 20130602)
+lbbg = "METAR LBBG 041600Z 12003MPS 310V290 1400 R04/P1500N R22/P1500U +SN BKN022 OVC050 M04/M07 Q1020 NOSIG 9949//91="
 
 FMH_table_12_1_visibility = c("M1/4","1/4","1/2","3/4","1","1 1/4","1 1/2","1 3/4","2","2 1/2","3","4","5","6","7","8","9","10",
                               "0","1/16","1/8","3/16","1/4","5/16","3/8","1/2","5/8","3/4","7/8","1","1 1/8","1 1/4","1 3/8","1 1/2","1 5/8","1 3/4","1 7/8","2","2 1/4","2 1/2","2 3/4","3","4","5","6","7","8","9","10","11","12","13","14","15","20","25","30","35")
@@ -244,6 +247,30 @@ extract_visibility = function(field)
   return(data.frame(visibility,UOM,CAVOK,LESS_THAN))
 }
 
+recognize_runway_visual_range = function(field)
+{
+  return(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field))
+}
+
+extract_runway_visual_range = function(field)
+{
+  runway = NA
+  runway_visual_range = NA
+  tendency = NA
+  extreme_value = NA
+  if(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field)){
+    res = regexec("R([0-9][0-9])\\/(M|P)?([0-9][0-9][0-9][0-9])(U|D|N)?",field)
+    runway = regmatches(field,res)[[1]][[2]]
+    extreme_value = regmatches(field,res)[[1]][[3]]
+    runway_visual_range = regmatches(field,res)[[1]][[4]]
+    tendency = regmatches(field,res)[[1]][[5]]
+  }
+  
+  # todo: WMO 15.7.5
+  
+  return(data.frame(runway,runway_visual_range,tendency,extreme_value))
+}
+
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -356,6 +383,55 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   
   # I do not implement WMO 15.6.2 because I did not understand it.
   
+  # As per WMO 15.7.2 up to four runway visual ranges can be reported
+  runway_1 = NA
+  runway_visual_range_1 = NA
+  tendency_1 = NA
+  extreme_value_1 = NA
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  if ( df$found_optional_field ) {
+    runway_1 = df$runway
+    runway_visual_range_1 = df$runway_visual_range   
+    tendency_1 = df$tendency
+    extreme_value_1 = df$extreme_value
+  }
+  
+  runway_2 = NA
+  runway_visual_range_2 = NA
+  tendency_2 = NA
+  extreme_value_2 = NA
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  if ( df$found_optional_field ) {
+    runway_2 = df$runway
+    runway_visual_range_2 = df$runway_visual_range   
+    tendency_2 = df$tendency
+    extreme_value_2 = df$extreme_value
+  }  
+  
+  runway_3 = NA
+  runway_visual_range_3 = NA
+  tendency_3 = NA
+  extreme_value_3 = NA
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  if ( df$found_optional_field ) {
+    runway_3 = df$runway
+    runway_visual_range_3 = df$runway_visual_range   
+    tendency_3 = df$tendency
+    extreme_value_3 = df$extreme_value
+  }   
+  
+  runway_4 = NA
+  runway_visual_range_4 = NA
+  tendency_4 = NA
+  extreme_value_4 = NA
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  if ( df$found_optional_field ) {
+    runway_4 = df$runway
+    runway_visual_range_4 = df$runway_visual_range   
+    tendency_4 = df$tendency
+    extreme_value_4 = df$extreme_value
+  }     
+  
   print(metar_string)
   return(data.frame(METAR,
                     SPECI,
@@ -366,7 +442,11 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     AUTO,
                     CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
                     WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
-                    visibility,visibility_UOM,CAVOK,LESS_THAN))
+                    visibility,visibility_UOM,CAVOK,LESS_THAN,
+                    runway_1,extreme_value_1,runway_visual_range_1,tendency_1,
+                    runway_2,extreme_value_2,runway_visual_range_2,tendency_2,
+                    runway_3,extreme_value_3,runway_visual_range_3,tendency_3,
+                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4))
 }
 
 print(metar_decoder(wu))
@@ -383,3 +463,4 @@ print(metar_decoder(klxv))
 print(metar_decoder(klxv_1))
 print(metar_decoder(klxv_2))
 str(metar_decoder(kccu))
+print(metar_decoder(lbbg))
