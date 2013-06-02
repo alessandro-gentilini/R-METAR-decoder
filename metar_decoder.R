@@ -215,6 +215,7 @@ recognize_visibility = function(field)
 {
   return(grepl("[0-9][0-9][0-9][0-9]",field)||
            grepl(".*SM",field) ||
+           grepl("M.*SM",field) ||
            grepl("CAVOK",field,fixed=T))
 }
 
@@ -223,6 +224,7 @@ extract_visibility = function(field)
   visibility = NA
   UOM = NA
   CAVOK = F
+  LESS_THAN = F
   if ( grepl("[0-9][0-9][0-9][0-9]",field) ) {
     res = regexec("([0-9][0-9][0-9][0-9])",field)
     visibility = as.numeric(regmatches(field,res)[[1]][[2]])
@@ -231,10 +233,15 @@ extract_visibility = function(field)
     res = regexec("(.*)SM",field)
     visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
     UOM = "SM"
+  } else if ( grepl("M(.*)SM",field)) {
+    res = regexec("M(.*)SM",field)
+    visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
+    UOM = "SM"    
+    LESS_THAN = T
   } else if ( grepl("CAVOK",field,fixed=T)){
     CAVOK = T
   }
-  return(data.frame(visibility,UOM,CAVOK))
+  return(data.frame(visibility,UOM,CAVOK,LESS_THAN))
 }
 
 
@@ -340,10 +347,14 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   visibility = NA
   visibility_UOM = NA
   CAVOK = F
+  LESS_THAN = F
   df = parse_field(groups[df$index],df$index,recognize_visibility,extract_visibility,T,"visibility")
   visibility = df$visibility
   visibility_UOM = df$UOM
   CAVOK = df$CAVOK
+  LESS_THAN = df$LESS_THAN
+  
+  # I do not implement WMO 15.6.2 because I did not understand it.
   
   print(metar_string)
   return(data.frame(METAR,
@@ -355,7 +366,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     AUTO,
                     CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
                     WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
-                    visibility,visibility_UOM,CAVOK))
+                    visibility,visibility_UOM,CAVOK,LESS_THAN))
 }
 
 print(metar_decoder(wu))
