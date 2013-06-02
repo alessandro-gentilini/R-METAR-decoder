@@ -57,253 +57,6 @@ FMH_table_12_1_visibility = c("M1/4","1/4","1/2","3/4","1","1 1/4","1 1/2","1 3/
                               "0","1/16","1/8","3/16","1/4","5/16","3/8","1/2","5/8","3/4","7/8","1","1 1/8","1 1/4","1 3/8","1 1/2","1 5/8","1 3/4","1 7/8","2","2 1/4","2 1/2","2 3/4","3","4","5","6","7","8","9","10","11","12","13","14","15","20","25","30","35")
 
 
-
-ICAO_station_length = 4
-YYGGggZ_length = 7
-wind_variation_lenght = 7
-WMO_visibility_length = 4
-
-
-
-substrRight = function(x, n){
-  substr(x, nchar(x)-n+1, nchar(x))
-}
-
-substrLeft = function(x, n){
-  substr(x, 1, nchar(x)-n)
-}
-
-fix_white_space_in_FMH_visibility = function(metar_string)
-{
-  re1="\\d";  # Any Single Digit 1
-  re2="(\\s+)";  # White Space 1
-  re3="\\d";	# Any Single Digit 2
-  re4="\\/";	# Any Single Character 1
-  re5="\\d";	# Any Single Digit 3
-  re6="S";	# Any Single Word Character (Not Whitespace) 1
-  re7="M";	# Any Single Word Character (Not Whitespace) 2
-  re = paste(re1,re2,re3,re4,re5,re6,re7,sep="")
-  result = regexec(re,metar_string)
-  if ( result[[1]][[1]] != -1 ) {
-    white_space_position = result[[1]][[2]]
-    substr(metar_string,white_space_position,white_space_position) = '+'
-  }
-  metar_string
-}
-
-extract_ICAO_location_indicator = function(CCCC)
-{
-  ICAO_location_indicator = ""
-  if ( nchar(CCCC) == ICAO_station_length ) {
-    ICAO_location_indicator = CCCC
-  } else {
-    stop(paste("Expected an 'ICAO location indicator', found",CCCC))  
-  }
-  ICAO_location_indicator
-}
-
-extract_ddhhmm = function(YYGGggZ)
-{
-  if ( nchar(YYGGggZ) != YYGGggZ_length || substr(YYGGggZ,7,7) != 'Z' ) {
-    stop(paste("Expected the YYGGggZ group, found",YYGGggZ))
-  }
-  dd = as.numeric(substr(YYGGggZ,1,2))
-  hh = as.numeric(substr(YYGGggZ,3,4))
-  mm = as.numeric(substr(YYGGggZ,5,6))
-  data.frame(dd,hh,mm)
-}
-
-extract_wind_info = function(dddffGfmfm)
-{
-  # todo: 15.5.6
-  CALM = F
-  VRB = F
-  direction = NA
-  speed = 0
-  GUST = F
-  gust_speed = 0
-  wind_speed_UOM = "MPS"
-  if ( substr(dddffGfmfm,1,5)=="00000" ) {
-    CALM = T
-    VRB = F
-    direction = NA
-    speed = 0
-  } else if ( substr(dddffGfmfm,1,3)=="VRB" ) {
-    CALM = F
-    VRB = T
-    direction = NA
-    speed = substr(dddffGfmfm,4,5)
-  } else {
-    CALM = F
-    VRB = F
-    direction = as.numeric(substr(dddffGfmfm,1,3))
-    speed = as.numeric(substr(dddffGfmfm,4,5))
-  }
-  
-  if ( nchar(dddffGfmfm) > 5 ) {
-    if ( substr(dddffGfmfm,6,6)=='G' ) {
-      GUST = T
-      gust_speed = as.numeric(substr(dddffGfmfm,7,8))
-      if ( nchar(dddffGfmfm) == 10 && substr(dddffGfmfm,9,10) == "KT") {
-        wind_speed_UOM = "KT"
-      } else if ( nchar(dddffGfmfm) == 11 && substr(dddffGfmfm,9,11) == "MPS") {
-        wind_speed_UOM = "MPS"
-      } else {
-        stop(paste("Expected dddffGfmfm group, found",dddffGfmfm))  
-      }
-    } else {
-      if ( nchar(dddffGfmfm)==7 && substr(dddffGfmfm,6,7) == "KT" ) {
-        wind_speed_UOM = "KT"
-      } else if ( nchar(dddffGfmfm)==8 && substr(dddffGfmfm,6,8) == "MPS") {
-        wind_speed_UOM = "MPS"
-      } else {
-        stop(paste("Expected dddffGfmfm group, found",dddffGfmfm))
-      }
-    }
-  }
-  data.frame(CALM,VRB,direction,speed,GUST,gust_speed,wind_speed_UOM)
-}
-
-
-metar_decoder = function(metar_string,low_visibility=1/32)
-{
-  metar_string = fix_white_space_in_FMH_visibility(metar_string)
-  groups = scan(what=character(),text=metar_string)
-  
-  next_index = 0
-  
-  METAR = T
-  SPECI = F
-  COR = F
-  ICAO_location_indicator = ""
-  
-  if ( groups[1] == "METAR") {
-    METAR = T
-    SPECI = F
-    if ( groups[2] == "COR" ) {
-      COR = T
-      ICAO_location_indicator = extract_ICAO_location_indicator(groups[3])
-      next_index = 4
-    } else {
-      COR = F
-      ICAO_location_indicator = extract_ICAO_location_indicator(groups[2])
-      next_index = 3
-    }
-  } else if ( groups[1] == "SPECI" ) {
-    METAR = F
-    SPECI = T
-    if ( groups[2] == "COR" ) {
-      COR = T
-      ICAO_location_indicator = extract_ICAO_location_indicator(groups[3])
-      next_index = 4
-    } else {
-      COR = F
-      ICAO_location_indicator = extract_ICAO_location_indicator(groups[2])
-      next_index = 3
-    }    
-  } else if ( groups[1] == "COR" ) {
-    METAR = F
-    SPECI = F
-    COR = T
-    ICAO_location_indicator = extract_ICAO_location_indicator(groups[2])
-    next_index = 3
-  } else {
-    METAR = F
-    SPECI = F
-    COR = F
-    ICAO_location_indicator = extract_ICAO_location_indicator(groups[1])    
-    next_index = 2
-  }
-  
-  ddhhmm = extract_ddhhmm(groups[next_index])
-  day = ddhhmm$dd
-  hour = ddhhmm$hh
-  minute = ddhhmm$mm
-  
-  next_index = next_index + 1
-  
-  NIL = F
-  AUTO = F
-  wind_info = data.frame()
-  if ( groups[next_index] == "NIL" ) {
-    NIL = T
-    AUTO = F
-    wind_info = extract_wind_info(groups[next_index+1])
-    next_index = next_index+2
-  } else if ( groups[next_index] == "AUTO" ) {
-    NIL = F
-    AUTO = T
-    wind_info = extract_wind_info(groups[next_index+1])
-    next_index = next_index+2
-  } else {
-    NIL = F
-    AUTO = F
-    wind_info = extract_wind_info(groups[next_index])
-    next_index = next_index+1    
-  }
-  
-  CALM = wind_info$CALM
-  VRB = wind_info$VRB
-  direction = wind_info$direction
-  speed = wind_info$speed
-  GUST = wind_info$GUST
-  gust_speed = wind_info$gust_speed
-  wind_speed_UOM = wind_info$wind_speed_UOM
-  
-  WIND_DIRECTION_VARIATION = F
-  extreme_wind_direction_n = NA
-  extreme_wind_direction_x = NA
-  visibility = NA
-  visibility_UOM = NA
-  CAVOK = F
-  if (nchar(groups[next_index])==wind_variation_lenght && substr(groups[next_index],4,4)=='V'){
-    WIND_DIRECTION_VARIATION = T
-    extreme_wind_direction_n = as.numeric(substr(groups[next_index],1,3))
-    extreme_wind_direction_x = as.numeric(substr(groups[next_index],5,7))
-    next_index = next_index + 1
-  } 
-  
-  if ( suppressWarnings(!is.na(as.numeric(groups[next_index]))) && nchar(groups[next_index])==WMO_visibility_length ){
-    visibility = as.numeric(groups[next_index])
-    visibility_UOM = "meter"
-  } else if (substrRight(groups[next_index],2)=="SM") {
-    visibility_UOM = "SM"
-    if(substr(groups[next_index],1,1)=='M'){
-      visibility = low_visibility
-    } else {
-      visibility = eval(parse(text=(substrLeft(groups[next_index],2))))
-    }
-  } else if (groups[next_index]=="CAVOK") {
-    CAVOK = T
-  } else {
-    stop(paste("Expected visibility group, found",groups[next_index]))
-  }
-  
-  # todo: 15.6.2
-  
-  
-  data.frame(METAR,SPECI,COR,ICAO_location_indicator,
-             day,hour,minute,
-             NIL,AUTO,
-             CALM,VRB,direction,speed,GUST,gust_speed,wind_speed_UOM,
-             WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,CAVOK,visibility,visibility_UOM)
-}
-
-print(metar_decoder(wu))
-print(metar_decoder(lipe))
-print(metar_decoder(live))
-print(metar_decoder(live_1))
-print(metar_decoder(birk))
-print(metar_decoder(llbg))
-print(metar_decoder(licr))
-print(metar_decoder(kslc))
-print(metar_decoder(eidw))
-print(metar_decoder(paed))
-print(metar_decoder(klxv))
-print(metar_decoder(klxv_1))
-print(metar_decoder(klxv_2))
-print(metar_decoder(kccu))
-
 recognize_METAR = function(field)
 {
   return(grepl("METAR",field,fixed=T))
@@ -458,6 +211,33 @@ extract_wind_direction_variation = function(field)
   return(data.frame(WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x))
 }
 
+recognize_visibility = function(field)
+{
+  return(grepl("[0-9][0-9][0-9][0-9]",field)||
+           grepl(".*SM",field) ||
+           grepl("CAVOK",field,fixed=T))
+}
+
+extract_visibility = function(field)
+{
+  visibility = NA
+  UOM = NA
+  CAVOK = F
+  if ( grepl("[0-9][0-9][0-9][0-9]",field) ) {
+    res = regexec("([0-9][0-9][0-9][0-9])",field)
+    visibility = as.numeric(regmatches(field,res)[[1]][[2]])
+    UOM = "M"
+  } else if (grepl(".*SM",field)) {
+    res = regexec("(.*)SM",field)
+    visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
+    UOM = "SM"
+  } else if ( grepl("CAVOK",field,fixed=T)){
+    CAVOK = T
+  }
+  return(data.frame(visibility,UOM,CAVOK))
+}
+
+
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
   data = NA
@@ -494,7 +274,7 @@ fix_white_space_in_FMH_visibility = function(metar_string)
 
 
 
-metar_decoder_2 = function(metar_string,low_visibility=1/32)
+metar_decoder = function(metar_string,low_visibility=1/32)
 {
   metar_string = fix_white_space_in_FMH_visibility(metar_string)
   groups = scan(what=character(),text=metar_string)
@@ -540,7 +320,7 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
   gust_speed = NA
   df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,T, "AUTO")
   CALM = df$CALM
-  UOM = df$UOM
+  wind_UOM = df$UOM
   speed = df$speed
   direction = df$direction
   VRB = df$VRB
@@ -557,21 +337,38 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
     extreme_wind_direction_x = df$extreme_wind_direction_x    
   }
   
+  visibility = NA
+  visibility_UOM = NA
+  CAVOK = F
+  df = parse_field(groups[df$index],df$index,recognize_visibility,extract_visibility,T,"visibility")
+  visibility = df$visibility
+  visibility_UOM = df$UOM
+  CAVOK = df$CAVOK
+  
   print(metar_string)
-  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction,VRB,GUST,gust_speed,WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x))
+  return(data.frame(METAR,
+                    SPECI,
+                    COR,
+                    ICAO_location_indicator,
+                    day,hour,minute,
+                    NIL,
+                    AUTO,
+                    CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
+                    WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
+                    visibility,visibility_UOM,CAVOK))
 }
 
-print(metar_decoder_2(wu))
-print(metar_decoder_2(lipe))
-print(metar_decoder_2(live))
-print(metar_decoder_2(live_1))
-print(metar_decoder_2(birk))
-print(metar_decoder_2(llbg))
-print(metar_decoder_2(licr))
-print(metar_decoder_2(kslc))
-print(metar_decoder_2(eidw))
-print(metar_decoder_2(paed))
-print(metar_decoder_2(klxv))
-print(metar_decoder_2(klxv_1))
-print(metar_decoder_2(klxv_2))
-str(metar_decoder_2(kccu))
+print(metar_decoder(wu))
+print(metar_decoder(lipe))
+print(metar_decoder(live))
+print(metar_decoder(live_1))
+print(metar_decoder(birk))
+print(metar_decoder(llbg))
+print(metar_decoder(licr))
+print(metar_decoder(kslc))
+print(metar_decoder(eidw))
+print(metar_decoder(paed))
+print(metar_decoder(klxv))
+print(metar_decoder(klxv_1))
+print(metar_decoder(klxv_2))
+str(metar_decoder(kccu))
