@@ -408,54 +408,70 @@ extract_wind = function(field)
     UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]KT" , field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])KT", field)
-    direction = regmatches(field,res)[[1]][[2]]
-    speed = regmatches(field,res)[[1]][[3]]
+    direction = as.numeric(regmatches(field,res)[[1]][[2]])
+    speed = as.numeric(regmatches(field,res)[[1]][[3]])
     UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])MPS", field)
-    direction = regmatches(field,res)[[1]][[2]]    
-    speed = regmatches(field,res)[[1]][[3]]
+    direction = as.numeric(regmatches(field,res)[[1]][[2]])
+    speed = as.numeric(regmatches(field,res)[[1]][[3]])
     UOM = "MPS"
   } else if( grepl("VRB[0-9][0-9]KT" , field) ) {
     res = regexec("VRB([0-9][0-9])KT", field)
-    speed = regmatches(field,res)[[1]][[2]]
+    speed = as.numeric(regmatches(field,res)[[1]][[2]])
     VRB = T
     UOM = "KT"
   } else if( grepl("VRB[0-9][0-9]MPS", field) ) {
     res = regexec("VRB([0-9][0-9])MPS", field)
-    speed = regmatches(field,res)[[1]][[2]]
+    speed = as.numeric(regmatches(field,res)[[1]][[2]])
     VRB = T
     UOM = "MPS"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])G([0-9][0-9])KT" , field)
-    direction = regmatches(field,res)[[1]][[2]]
-    speed = regmatches(field,res)[[1]][[3]]
-    gust_speed = regmatches(field,res)[[1]][[4]]
+    direction = as.numeric(regmatches(field,res)[[1]][[2]])
+    speed = as.numeric(regmatches(field,res)[[1]][[3]])
+    gust_speed = as.numeric(regmatches(field,res)[[1]][[4]])
     GUST = T
     UOM = "KT"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])G([0-9][0-9])MPS" , field)
-    direction = regmatches(field,res)[[1]][[2]]
-    speed = regmatches(field,res)[[1]][[3]]
-    gust_speed = regmatches(field,res)[[1]][[4]]
+    direction = as.numeric(regmatches(field,res)[[1]][[2]])
+    speed = as.numeric(regmatches(field,res)[[1]][[3]])
+    gust_speed = as.numeric(regmatches(field,res)[[1]][[4]])
     GUST = T
     UOM = "MPS"
   }
   return(data.frame(CALM,UOM,speed,direction,VRB,GUST,gust_speed))
 }
 
+recognize_wind_direction_variation = function(field)
+{
+  return(grepl("[0-9][0-9][0-9]V[0-9][0-9][0-9]",field))
+}
+
+extract_wind_direction_variation = function(field)
+{
+  res = regexec("([0-9][0-9][0-9])V([0-9][0-9][0-9])",field)
+  WIND_DIRECTION_VARIATION = T
+  extreme_wind_direction_n = as.numeric(regmatches(field,res)[[1]][[2]])
+  extreme_wind_direction_x = as.numeric(regmatches(field,res)[[1]][[3]])
+  return(data.frame(WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x))
+}
+
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
   data = NA
+  found_optional_field = F
   if ( recognizer(field) ) {
     data = extractor(field)
-    index = index + 1  
+    index = index + 1
+    found_optional_field = T
   } else {
     if ( is_compulsory ) {
       stop(sprintf("Expected compulsory field '%s', found '%s'.",field_description,field))
     }  
   }
-  return(data.frame(data,index))
+  return(data.frame(data,index,found_optional_field))
 }
 
 fix_white_space_in_FMH_visibility = function(metar_string)
@@ -522,7 +538,7 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
   VRB = F
   GUST = F
   gust_speed = NA
-  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,F, "AUTO")
+  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,T, "AUTO")
   CALM = df$CALM
   UOM = df$UOM
   speed = df$speed
@@ -531,8 +547,18 @@ metar_decoder_2 = function(metar_string,low_visibility=1/32)
   GUST = df$GUST
   gust_speed = df$gust_speed
   
+  WIND_DIRECTION_VARIATION = F
+  extreme_wind_direction_n = NA
+  extreme_wind_direction_x = NA
+  df = parse_field(groups[df$index],df$index,recognize_wind_direction_variation,extract_wind_direction_variation,F,"wind direction variation")
+  if ( df$found_optional_field ) {
+    WIND_DIRECTION_VARIATION = df$WIND_DIRECTION_VARIATION
+    extreme_wind_direction_n = df$extreme_wind_direction_n
+    extreme_wind_direction_x = df$extreme_wind_direction_x    
+  }
+  
   print(metar_string)
-  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction,VRB,GUST,gust_speed))
+  return(data.frame(METAR,SPECI,COR,ICAO_location_indicator,day,hour,minute,NIL,AUTO,CALM,UOM,speed,direction,VRB,GUST,gust_speed,WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x))
 }
 
 print(metar_decoder_2(wu))
@@ -548,4 +574,4 @@ print(metar_decoder_2(paed))
 print(metar_decoder_2(klxv))
 print(metar_decoder_2(klxv_1))
 print(metar_decoder_2(klxv_2))
-print(metar_decoder_2(kccu))
+str(metar_decoder_2(kccu))
