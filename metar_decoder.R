@@ -264,6 +264,7 @@ set_NA_if_empty_string = function(s)
 
 extract_runway_visual_range = function(field)
 {
+  # todo: 12.6.7 FMH (feet as UOM)
   runway = NA
   runway_visual_range = NA
   tendency = NA
@@ -299,13 +300,14 @@ extract_runway_visual_range = function(field)
 recognize_weather = function(field)
 {
   # Code table 4678, page A-359 in WMO
+  # Table 12-2, in 12.6.8 FMH, page 12-4
   res = regexec("(\\-|\\+|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(.*)",field)
   supposed_phenomena = regmatches(field,res)[[1]][[4]]
   found = T
   if ( nchar(supposed_phenomena) != 0 && nchar(supposed_phenomena)%%2 == 0 ){
     start = 1
     for ( i in nchar(supposed_phenomena)/2 ) {
-      found = found && (substr(supposed_phenomena,start,start+2) %in% c("DZ","RA","SN","SG","IC","PL","GR","GS","UP","BR","FG","FU","VA","DU","SA","HZ","PO","SQ","FC","SS","DS") )
+      found = found && (substr(supposed_phenomena,start,start+2) %in% c("DZ","RA","SN","SG","IC","PL","GR","GS","UP","BR","FG","FU","VA","DU","SA","HZ","PY","PO","SQ","FC","SS","DS") )
       start = start + 2
     }
   } else {
