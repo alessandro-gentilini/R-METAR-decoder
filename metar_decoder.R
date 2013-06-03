@@ -296,6 +296,33 @@ extract_runway_visual_range = function(field)
                     tendency_12))
 }
 
+recognize_weather = function(field)
+{
+  # Code table 4678, page A-359 in WMO
+  res = regexec("(\\-|\\+|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(.*)",field)
+  supposed_phenomena = regmatches(field,res)[[1]][[4]]
+  found = T
+  if ( nchar(supposed_phenomena) != 0 && nchar(supposed_phenomena)%%2 == 0 ){
+    start = 1
+    for ( i in nchar(supposed_phenomena)/2 ) {
+      found = found && (substr(supposed_phenomena,start,start+2) %in% c("DZ","RA","SN","SG","IC","PL","GR","GS","UP","BR","FG","FU","VA","DU","SA","HZ","PO","SQ","FC","SS","DS") )
+      start = start + 2
+    }
+  } else {
+    found = F
+  }
+  return(found)
+}
+
+extract_weather = function(field)
+{
+  res = regexec("(\\-|\\+|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(.*)",field)
+  intensity = set_NA_if_empty_string(regmatches(field,res)[[1]][[2]])
+  descriptor = set_NA_if_empty_string(regmatches(field,res)[[1]][[3]])
+  phenomena = regmatches(field,res)[[1]][[4]]
+  return(data.frame(intensity,descriptor,phenomena))
+}
+
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -406,7 +433,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   CAVOK = df$CAVOK
   LESS_THAN = df$LESS_THAN
   
-  # I do not implement WMO 15.6.2 because I did not understand it.
+  # todo: Implement WMO 15.6.2
   
   # As per WMO 15.7.2 up to four runway visual ranges can be reported
   runway_1 = NA
@@ -418,7 +445,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_1 = NA
   extreme_value_2_1 = NA
   tendency_12_1 = NA
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 1")
   if ( df$found_optional_field ) {
     runway_1 = df$runway
     runway_visual_range_1 = df$runway_visual_range   
@@ -440,7 +467,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_2 = NA
   extreme_value_2_2 = NA
   tendency_12_2 = NA  
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 2")
   if ( df$found_optional_field ) {
     runway_2 = df$runway
     runway_visual_range_2 = df$runway_visual_range   
@@ -462,7 +489,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_3 = NA
   extreme_value_2_3 = NA
   tendency_12_3 = NA    
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 3")
   if ( df$found_optional_field ) {
     runway_3 = df$runway
     runway_visual_range_3 = df$runway_visual_range   
@@ -484,7 +511,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_4 = NA
   extreme_value_2_4 = NA
   tendency_12_4 = NA   
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
+  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 4")
   if ( df$found_optional_field ) {
     runway_4 = df$runway
     runway_visual_range_4 = df$runway_visual_range   
@@ -495,7 +522,38 @@ metar_decoder = function(metar_string,low_visibility=1/32)
     extreme_value_1_4 = df$extreme_value_1
     extreme_value_2_4 = df$extreme_value_2
     tendency_12_4 = df$tendency_12        
-  }     
+  }  
+  
+  # As per WMO 15.8.1 up to three observed weather phenomena can be reported
+  intensity_1 = NA
+  descriptor_1 = NA
+  phenomena_1 = NA
+  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 1")
+  if ( df$found_optional_field ) {
+    intensity_1 = df$intensity
+    descriptor_1 = df$descriptor
+    phenomena_1 = df$phenomena
+  }
+  
+  intensity_2 = NA
+  descriptor_2 = NA
+  phenomena_2 = NA
+  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 2")
+  if ( df$found_optional_field ) {
+    intensity_2 = df$intensity
+    descriptor_2 = df$descriptor
+    phenomena_2 = df$phenomena
+  }  
+  
+  intensity_3 = NA
+  descriptor_3 = NA
+  phenomena_3 = NA
+  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 3")
+  if ( df$found_optional_field ) {
+    intensity_3 = df$intensity
+    descriptor_3 = df$descriptor
+    phenomena_3 = df$phenomena
+  }    
   
   print(metar_string)
   return(data.frame(METAR,
@@ -511,7 +569,11 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     runway_1,extreme_value_1,runway_visual_range_1,tendency_1,runway_visual_range_variation_1_1,runway_visual_range_variation_2_1,extreme_value_1_1,extreme_value_2_1,tendency_12_1,
                     runway_2,extreme_value_2,runway_visual_range_2,tendency_2,runway_visual_range_variation_1_2,runway_visual_range_variation_2_2,extreme_value_1_2,extreme_value_2_2,tendency_12_2,
                     runway_3,extreme_value_3,runway_visual_range_3,tendency_3,runway_visual_range_variation_1_3,runway_visual_range_variation_2_3,extreme_value_1_3,extreme_value_2_3,tendency_12_3,
-                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4))
+                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4,
+                    intensity_1,descriptor_1,phenomena_1,
+                    intensity_2,descriptor_2,phenomena_2,
+                    intensity_3,descriptor_3,phenomena_3
+                    ))
 }
 
 
@@ -529,5 +591,5 @@ print(metar_decoder(paed))
 print(metar_decoder(klxv))
 print(metar_decoder(klxv_1))
 print(metar_decoder(klxv_2))
-str(metar_decoder(kccu))
+print(metar_decoder(kccu))
 print(metar_decoder(lbbg))
