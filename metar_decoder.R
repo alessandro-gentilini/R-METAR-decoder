@@ -249,7 +249,17 @@ extract_visibility = function(field)
 
 recognize_runway_visual_range = function(field)
 {
-  return(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field))
+  return(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field)||
+         grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9]V(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field))
+}
+
+set_NA_if_empty_string = function(s)
+{
+  if ( s=="" ) {
+    return(NA)
+  }else{
+    return(s)
+  }
 }
 
 extract_runway_visual_range = function(field)
@@ -258,17 +268,32 @@ extract_runway_visual_range = function(field)
   runway_visual_range = NA
   tendency = NA
   extreme_value = NA
+  runway_visual_range_variation_1 = NA
+  runway_visual_range_variation_2 = NA
+  extreme_value_1 = NA
+  extreme_value_2 = NA
+  tendency_12 = NA
   if(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field)){
     res = regexec("R([0-9][0-9])\\/(M|P)?([0-9][0-9][0-9][0-9])(U|D|N)?",field)
     runway = regmatches(field,res)[[1]][[2]]
-    extreme_value = regmatches(field,res)[[1]][[3]]
-    runway_visual_range = regmatches(field,res)[[1]][[4]]
-    tendency = regmatches(field,res)[[1]][[5]]
+    extreme_value = set_NA_if_empty_string(regmatches(field,res)[[1]][[3]])
+    runway_visual_range = as.numeric(regmatches(field,res)[[1]][[4]])
+    tendency = set_NA_if_empty_string(regmatches(field,res)[[1]][[5]])
+  } else if(grepl("R[0-9][0-9]\\/(M|P)?[0-9][0-9][0-9][0-9]V(M|P)?[0-9][0-9][0-9][0-9](U|D|N)?",field)) {
+    res = regexec("R([0-9][0-9])\\/(M|P)?([0-9][0-9][0-9][0-9])V(M|P)?([0-9][0-9][0-9][0-9])(U|D|N)?",field)
+    runway = regmatches(field,res)[[1]][[2]]
+    extreme_value_1 = set_NA_if_empty_string(regmatches(field,res)[[1]][[3]])
+    runway_visual_range_variation_1 = as.numeric(regmatches(field,res)[[1]][[4]])
+    extreme_value_2 = set_NA_if_empty_string(regmatches(field,res)[[1]][[5]])
+    runway_visual_range_variation_2 = as.numeric(regmatches(field,res)[[1]][[6]])
+    tendency_12 = set_NA_if_empty_string(regmatches(field,res)[[1]][[7]])
   }
   
-  # todo: WMO 15.7.5
   
-  return(data.frame(runway,runway_visual_range,tendency,extreme_value))
+  return(data.frame(runway,runway_visual_range,tendency,extreme_value,
+                    extreme_value_1,runway_visual_range_variation_1,
+                    extreme_value_2,runway_visual_range_variation_2,
+                    tendency_12))
 }
 
 
@@ -388,48 +413,88 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   runway_visual_range_1 = NA
   tendency_1 = NA
   extreme_value_1 = NA
+  runway_visual_range_variation_1_1 = NA
+  runway_visual_range_variation_2_1 = NA
+  extreme_value_1_1 = NA
+  extreme_value_2_1 = NA
+  tendency_12_1 = NA
   df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
   if ( df$found_optional_field ) {
     runway_1 = df$runway
     runway_visual_range_1 = df$runway_visual_range   
     tendency_1 = df$tendency
     extreme_value_1 = df$extreme_value
+    runway_visual_range_variation_1_1 = df$runway_visual_range_variation_1
+    runway_visual_range_variation_2_1 = df$runway_visual_range_variation_2
+    extreme_value_1_1 = df$extreme_value_1
+    extreme_value_2_1 = df$extreme_value_2
+    tendency_12_1 = df$tendency_12    
   }
   
   runway_2 = NA
   runway_visual_range_2 = NA
   tendency_2 = NA
   extreme_value_2 = NA
+  runway_visual_range_variation_1_2 = NA
+  runway_visual_range_variation_2_2 = NA
+  extreme_value_1_2 = NA
+  extreme_value_2_2 = NA
+  tendency_12_2 = NA  
   df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
   if ( df$found_optional_field ) {
     runway_2 = df$runway
     runway_visual_range_2 = df$runway_visual_range   
     tendency_2 = df$tendency
     extreme_value_2 = df$extreme_value
+    runway_visual_range_variation_1_2 = df$runway_visual_range_variation_1
+    runway_visual_range_variation_2_2 = df$runway_visual_range_variation_2
+    extreme_value_1_2 = df$extreme_value_1
+    extreme_value_2_2 = df$extreme_value_2
+    tendency_12_2 = df$tendency_12    
   }  
   
   runway_3 = NA
   runway_visual_range_3 = NA
   tendency_3 = NA
   extreme_value_3 = NA
+  runway_visual_range_variation_1_3 = NA
+  runway_visual_range_variation_2_3 = NA
+  extreme_value_1_3 = NA
+  extreme_value_2_3 = NA
+  tendency_12_3 = NA    
   df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
   if ( df$found_optional_field ) {
     runway_3 = df$runway
     runway_visual_range_3 = df$runway_visual_range   
     tendency_3 = df$tendency
     extreme_value_3 = df$extreme_value
+    runway_visual_range_variation_1_3 = df$runway_visual_range_variation_1
+    runway_visual_range_variation_2_3 = df$runway_visual_range_variation_2
+    extreme_value_1_3 = df$extreme_value_1
+    extreme_value_2_3 = df$extreme_value_2
+    tendency_12_3 = df$tendency_12     
   }   
   
   runway_4 = NA
   runway_visual_range_4 = NA
   tendency_4 = NA
   extreme_value_4 = NA
+  runway_visual_range_variation_1_4 = NA
+  runway_visual_range_variation_2_4 = NA
+  extreme_value_1_4 = NA
+  extreme_value_2_4 = NA
+  tendency_12_4 = NA   
   df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range")
   if ( df$found_optional_field ) {
     runway_4 = df$runway
     runway_visual_range_4 = df$runway_visual_range   
     tendency_4 = df$tendency
     extreme_value_4 = df$extreme_value
+    runway_visual_range_variation_1_4 = df$runway_visual_range_variation_1
+    runway_visual_range_variation_2_4 = df$runway_visual_range_variation_2
+    extreme_value_1_4 = df$extreme_value_1
+    extreme_value_2_4 = df$extreme_value_2
+    tendency_12_4 = df$tendency_12        
   }     
   
   print(metar_string)
@@ -443,11 +508,13 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
                     WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
                     visibility,visibility_UOM,CAVOK,LESS_THAN,
-                    runway_1,extreme_value_1,runway_visual_range_1,tendency_1,
-                    runway_2,extreme_value_2,runway_visual_range_2,tendency_2,
-                    runway_3,extreme_value_3,runway_visual_range_3,tendency_3,
-                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4))
+                    runway_1,extreme_value_1,runway_visual_range_1,tendency_1,runway_visual_range_variation_1_1,runway_visual_range_variation_2_1,extreme_value_1_1,extreme_value_2_1,tendency_12_1,
+                    runway_2,extreme_value_2,runway_visual_range_2,tendency_2,runway_visual_range_variation_1_2,runway_visual_range_variation_2_2,extreme_value_1_2,extreme_value_2_2,tendency_12_2,
+                    runway_3,extreme_value_3,runway_visual_range_3,tendency_3,runway_visual_range_variation_1_3,runway_visual_range_variation_2_3,extreme_value_1_3,extreme_value_2_3,tendency_12_3,
+                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4))
 }
+
+
 
 print(metar_decoder(wu))
 print(metar_decoder(lipe))
