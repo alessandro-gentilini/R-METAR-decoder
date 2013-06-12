@@ -1,9 +1,12 @@
 R-METAR-decoder
 ===============
 
-A METAR decoder written in R - work in progress!
+A METAR decoder written in R.
 
-The description of METAR decodification is based on two manuals, there are some small differences between two METAR formats, I call them the _international_ format amd the _USA_ format.
+Status: the decoder works up to the altimeter (or QNH) group.
+An extended test suite is needed.
+
+The description of METAR decodification is based on two manuals, there are two main METAR formats, I call them the _international_ format and the _USA_ format; there are differences in the two formats for example regarding the units of measure (where the international format prescribes the SI units while the USA format prescribe different units) or the abbreviations.
 
 The international format is described in a manual from the World Meteorological Organization:
 

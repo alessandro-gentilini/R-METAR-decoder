@@ -55,10 +55,12 @@ kccu = "KCCU 291112Z AUTO 24009KT 180V280 1 3/4SM -SN BKN002 BKN006 OVC011 01/M0
 
 # http://en.wikipedia.org/wiki/METAR (accessed 20130602)
 lbbg = "METAR LBBG 041600Z 12003MPS 310V290 1400 R04/P1500N R22/P1500U +SN BKN022 OVC050 M04/M07 Q1020 NOSIG 9949//91="
+# http://en.wikipedia.org/wiki/METAR (accessed 20130612)
+kttn = "METAR KTTN 051853Z 04011KT 1/2SM VCTS SN FZFG BKN003 OVC010 M02/M02 A3006 RMK AO2 TSB40 SLP176 P0002 T10171017="
 
 FMH_table_12_1_visibility = c("M1/4","1/4","1/2","3/4","1","1 1/4","1 1/2","1 3/4","2","2 1/2","3","4","5","6","7","8","9","10",
                               "0","1/16","1/8","3/16","1/4","5/16","3/8","1/2","5/8","3/4","7/8","1","1 1/8","1 1/4","1 3/8","1 1/2","1 5/8","1 3/4","1 7/8","2","2 1/4","2 1/2","2 3/4","3","4","5","6","7","8","9","10","11","12","13","14","15","20","25","30","35")
-
+options(error=traceback)
 
 recognize_METAR = function(field)
 {
@@ -310,6 +312,8 @@ recognize_weather = function(field)
       found = found && (substr(supposed_phenomena,start,start+2) %in% c("DZ","RA","SN","SG","IC","PL","GR","GS","UP","BR","FG","FU","VA","DU","SA","HZ","PY","PO","SQ","FC","SS","DS") )
       start = start + 2
     }
+  } else if ( supposed_phenomena=="" ) {
+    found = T
   } else {
     found = F
   }
@@ -321,7 +325,8 @@ extract_weather = function(field)
   res = regexec("(\\-|\\+|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(.*)",field)
   intensity = set_NA_if_empty_string(regmatches(field,res)[[1]][[2]])
   descriptor = set_NA_if_empty_string(regmatches(field,res)[[1]][[3]])
-  phenomena = regmatches(field,res)[[1]][[4]]
+  phenomena = set_NA_if_empty_string(regmatches(field,res)[[1]][[4]])
+  print(data.frame(intensity,descriptor,phenomena))
   return(data.frame(intensity,descriptor,phenomena))
 }
 
@@ -399,6 +404,26 @@ extract_temperature = function(field)
   return(data.frame(temperature,dew_point))
 }
 
+recognize_altimeter = function(field)
+{
+  return( grepl("(A|Q)([0-9][0-9][0-9][0-9])",field) )
+}
+
+extract_altimeter = function(field)
+{
+  UOM = NA
+  pressure = NA
+  res = regexec("(A|Q)([0-9][0-9][0-9][0-9])",field)
+  type = regmatches(field,res)[[1]][[2]]
+  if ( type == "A") {
+    UOM="Hg_inches"
+    pressure = as.numeric(regmatches(field,res)[[1]][[3]])/100
+  } else if ( type == "Q" ){
+    UOM="hPa"
+    pressure = as.numeric(regmatches(field,res)[[1]][[3]])
+  }
+  return(data.frame(UOM,pressure))
+}
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -700,6 +725,13 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   temperature = df$temperature
   dew_point = df$dew_point
   
+  pressure_UOM = NA
+  pressure = NA
+  # per FMH 12.6.10 temperature/dew point can be not available
+  df= parse_field(groups[df$index],df$index,recognize_altimeter,extract_altimeter,T,"pressure")
+  pressure_UOM = df$UOM
+  pressure = df$pressure  
+  
   print(metar_string)
   return(data.frame(METAR,
                     SPECI,
@@ -733,7 +765,8 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     vertical_visibility_unavailable_1,
                     vertical_visibility_unavailable_2,
                     vertical_visibility_unavailable_3,
-                    temperature,dew_point
+                    temperature,dew_point,
+                    pressure_UOM,pressure
                     ))
 }
 
@@ -754,3 +787,4 @@ print(metar_decoder(klxv_1))
 print(metar_decoder(klxv_2))
 print(metar_decoder(kccu))
 print(metar_decoder(lbbg))
+print(metar_decoder(kttn))
