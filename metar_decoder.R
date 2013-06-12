@@ -325,6 +325,46 @@ extract_weather = function(field)
   return(data.frame(intensity,descriptor,phenomena))
 }
 
+recognize_clouds = function(field)
+{
+  return(grepl("(FEW|SCT|BKN|OVC)([0-9][0-9][0-9])(CB|TCU|///)?",field) ||
+         grepl("(NSC|NCD|SKC|CLR)",field)                  ||
+         grepl("VV([0-9][0-9][0-9])",field)                ||
+         grepl("//////",field)                  )
+}
+
+extract_clouds = function(field)
+{
+  amount = NA
+  height = NA
+  cloud_abbreviation = NA
+  VV = F
+  vertical_visibility = NA
+  unobservable = F
+  convective_cloud = NA
+  vertical_visibility_unavailable = F
+  if ( grepl("(FEW|SCT|BKN|OVC)([0-9][0-9][0-9])(CB|TCU|///)?",field) ) {
+    res = regexec("(FEW|SCT|BKN|OVC)([0-9][0-9][0-9])(CB|TCU|///)?",field)
+    amount = regmatches(field,res)[[1]][[2]]
+    # WMO 15.9.1.5 height is in 30meter steps
+    height = 30*as.numeric(regmatches(field,res)[[1]][[3]])
+    convective_cloud = set_NA_if_empty_string(regmatches(field,res)[[1]][[4]])
+  } else if ( grepl("(NSC|NCD|SKC|CLR)",field) ) {
+    res = regexec("(NSC|NCD|SKC|CLR)",field)
+    cloud_abbreviation = regmatches(field,res)[[1]][[2]]
+  } else if (grepl("VV([0-9][0-9][0-9])",field) ) {
+    res = regexec("VV([0-9][0-9][0-9])",field)
+    VV = T
+    # WMO 15.9.2 vertical visibility is in 30meter steps
+    vertical_visibility = 30*as.numeric(regmatches(field,res)[[1]][[2]]);
+  }  else if (grepl("VV///",field)) {
+    vertical_visibility_unavailable = T
+  } else if (grepl("//////",field)) {
+    unobservable = T
+  }
+  return(data.frame(amount,height,cloud_abbreviation,VV,vertical_visibility,unobservable,convective_cloud,vertical_visibility_unavailable))
+}
+
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -557,6 +597,68 @@ metar_decoder = function(metar_string,low_visibility=1/32)
     phenomena_3 = df$phenomena
   }    
   
+  
+  # As per WMO 15.9.1.3 up to three clouds can be reported
+  cloud_amount_1 = NA
+  cloud_height_1 = NA
+  cloud_abbreviation_1 = NA
+  VV_1 = NA
+  vertical_visibility_1 = NA
+  cloud_unobservable_1 = NA
+  convective_cloud_1 = NA
+  vertical_visibility_unavailable_1 = NA
+  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 1")
+  if ( df$found_optional_field ) {
+    cloud_amount_1 = df$amount
+    cloud_height_1 = df$height
+    cloud_abbreviation_1 = df$cloud_abbreviation
+    VV_1 = df$VV
+    vertical_visibility_1 = df$vertical_visibility
+    cloud_unobservable_1 = df$unobservable
+    convective_cloud_1 = df$convective_cloud
+    vertical_visibility_unavailable_1 = df$vertical_visibility_unavailable
+  }
+  
+  cloud_amount_2 = NA
+  cloud_height_2 = NA
+  cloud_abbreviation_2 = NA
+  VV_2 = NA
+  vertical_visibility_2 = NA  
+  cloud_unobservable_2 = NA
+  convective_cloud_2 = NA
+  vertical_visibility_unavailable_2 = NA
+  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 2")
+  if ( df$found_optional_field ) {
+    cloud_amount_2 = df$amount
+    cloud_height_2 = df$height
+    cloud_abbreviation_2 = df$cloud_abbreviation
+    VV_2 = df$VV
+    vertical_visibility_2 = df$vertical_visibility    
+    cloud_unobservable_2 = df$unobservable
+    convective_cloud_2 = df$convective_cloud
+    vertical_visibility_unavailable_2 = df$vertical_visibility_unavailable    
+  }  
+
+  cloud_amount_3 = NA
+  cloud_height_3 = NA
+  cloud_abbreviation_3 = NA
+  VV_3 = NA
+  vertical_visibility_3 = NA    
+  cloud_unobservable_3 = NA
+  convective_cloud_3 = NA
+  vertical_visibility_unavailable_3 = NA
+  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 3")
+  if ( df$found_optional_field ) {
+    cloud_amount_3 = df$amount
+    cloud_height_3 = df$height
+    cloud_abbreviation_3 = df$cloud_abbreviation
+    VV_3 = df$VV
+    vertical_visibility_3 = df$vertical_visibility        
+    cloud_unobservable_3 = df$unobservable
+    convective_cloud_3 = df$convective_cloud
+    vertical_visibility_unavailable_3 = df$vertical_visibility_unavailable    
+  }    
+  
   print(metar_string)
   return(data.frame(METAR,
                     SPECI,
@@ -574,7 +676,22 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4,
                     intensity_1,descriptor_1,phenomena_1,
                     intensity_2,descriptor_2,phenomena_2,
-                    intensity_3,descriptor_3,phenomena_3
+                    intensity_3,descriptor_3,phenomena_3,
+                    cloud_amount_1,cloud_height_1,cloud_abbreviation_1,
+                    cloud_amount_2,cloud_height_2,cloud_abbreviation_2,
+                    cloud_amount_3,cloud_height_3,cloud_abbreviation_3,
+                    VV_1,vertical_visibility_1,
+                    VV_2,vertical_visibility_2,
+                    VV_3,vertical_visibility_3,
+                    cloud_unobservable_1,
+                    cloud_unobservable_2,
+                    cloud_unobservable_3,
+                    convective_cloud_1,
+                    convective_cloud_2,
+                    convective_cloud_3,
+                    vertical_visibility_unavailable_1,
+                    vertical_visibility_unavailable_2,
+                    vertical_visibility_unavailable_3
                     ))
 }
 
