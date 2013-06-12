@@ -365,6 +365,40 @@ extract_clouds = function(field)
   return(data.frame(amount,height,cloud_abbreviation,VV,vertical_visibility,unobservable,convective_cloud,vertical_visibility_unavailable))
 }
 
+recognize_temperature = function(field)
+{
+  return(grepl("(M)?([0-9][0-9])/(M)?([0-9][0-9])",field) ||
+         grepl("(M)?([0-9][0-9])/",field) )
+}
+
+extract_temperature = function(field)
+{
+  temperature = NA
+  dew_point = NA
+  if ( grepl("(M)?([0-9][0-9])/(M)?([0-9][0-9])",field) ){
+    sign = +1
+    res = regexec("(M)?([0-9][0-9])/(M)?([0-9][0-9])",field)
+    if ( "M" == regmatches(field,res)[[1]][[2]] ) {
+      sign = -1
+    }
+    temperature = sign*as.numeric(regmatches(field,res)[[1]][[3]])
+    sign = +1
+    if ( "M" == regmatches(field,res)[[1]][[4]] ) {
+      sign = -1
+    } 
+    dew_point = sign*as.numeric(regmatches(field,res)[[1]][[5]])    
+  } else if ( grepl("(M)?([0-9][0-9])/",field) ) {
+    sign = +1
+    res = regexec("(M)?([0-9][0-9])/",field)
+    if ( "M" == regmatches(field,res)[[1]][[2]] ) {
+      sign = -1
+    }
+    temperature = sign*as.numeric(regmatches(field,res)[[1]][[3]])    
+  }
+  
+  return(data.frame(temperature,dew_point))
+}
+
 
 parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
 {
@@ -659,6 +693,13 @@ metar_decoder = function(metar_string,low_visibility=1/32)
     vertical_visibility_unavailable_3 = df$vertical_visibility_unavailable    
   }    
   
+  temperature = NA
+  dew_point = NA
+  # per FMH 12.6.10 temperature/dew point can be not available
+  df= parse_field(groups[df$index],df$index,recognize_temperature,extract_temperature,F,"temperature")
+  temperature = df$temperature
+  dew_point = df$dew_point
+  
   print(metar_string)
   return(data.frame(METAR,
                     SPECI,
@@ -691,7 +732,8 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     convective_cloud_3,
                     vertical_visibility_unavailable_1,
                     vertical_visibility_unavailable_2,
-                    vertical_visibility_unavailable_3
+                    vertical_visibility_unavailable_3,
+                    temperature,dew_point
                     ))
 }
 
