@@ -143,6 +143,8 @@ recognize_wind = function(field)
           grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) || 
           grepl("VRB[0-9][0-9]KT" , field) ||
           grepl("VRB[0-9][0-9]MPS", field) ||
+          grepl("VRB[0-9][0-9]G[0-9][0-9]KT" , field) ||
+          grepl("VRB[0-9][0-9]G[0-9][0-9]MPS", field) ||            
           grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ||
           grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) 
           
@@ -184,6 +186,20 @@ extract_wind = function(field)
     speed = as.numeric(regmatches(field,res)[[1]][[2]])
     VRB = T
     UOM = "MPS"
+  } else if ( grepl("VRB[0-9][0-9]G[0-9][0-9]KT",field) ) {
+    res = regexec("VRB([0-9][0-9])G([0-9][0-9])KT", field)
+    speed = as.numeric(regmatches(field,res)[[1]][[2]])
+    gust_speed = as.numeric(regmatches(field,res)[[1]][[3]])
+    VRB = T
+    GUST = T
+    UOM = "KT"    
+  } else if ( grepl("VRB[0-9][0-9]G[0-9][0-9]MPS",field) ) {
+    res = regexec("VRB([0-9][0-9])G([0-9][0-9])MPS", field)
+    speed = as.numeric(regmatches(field,res)[[1]][[2]])
+    gust_speed = as.numeric(regmatches(field,res)[[1]][[3]])
+    VRB = T
+    GUST = T
+    UOM = "MPS"        
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])G([0-9][0-9])KT" , field)
     direction = as.numeric(regmatches(field,res)[[1]][[2]])
@@ -464,6 +480,7 @@ fix_white_space_in_FMH_visibility = function(metar_string)
 metar_decoder = function(metar_string,low_visibility=1/32)
 {
   metar_string = fix_white_space_in_FMH_visibility(metar_string)
+  print(metar_string)
   groups = scan(what=character(),text=metar_string)
   
   METAR = NA
@@ -505,7 +522,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   VRB = F
   GUST = F
   gust_speed = NA
-  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,T, "AUTO")
+  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,T, "Wind")
   CALM = df$CALM
   wind_UOM = df$UOM
   speed = df$speed
@@ -732,7 +749,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   pressure_UOM = df$UOM
   pressure = df$pressure  
   
-  print(metar_string)
+  
   return(data.frame(METAR,
                     SPECI,
                     COR,
@@ -770,21 +787,30 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     ))
 }
 
+get_metar = function(ICAO_ID)
+{
+  url = sprintf("http://weather.noaa.gov/pub/data/observations/metar/stations/%s.TXT",ICAO_ID)
+  ans=scan(what=character(),text=getURL(url),sep="\n")
+  return(metar_decoder(ans[2]))
+}
 
 
-print(metar_decoder(wu))
-print(metar_decoder(lipe))
-print(metar_decoder(live))
-print(metar_decoder(live_1))
-print(metar_decoder(birk))
-print(metar_decoder(llbg))
-print(metar_decoder(licr))
-print(metar_decoder(kslc))
-print(metar_decoder(eidw))
-print(metar_decoder(paed))
-print(metar_decoder(klxv))
-print(metar_decoder(klxv_1))
-print(metar_decoder(klxv_2))
-print(metar_decoder(kccu))
-print(metar_decoder(lbbg))
-print(metar_decoder(kttn))
+print(get_metar("LIVE"))
+print(get_metar("KLXV"))
+
+# print(metar_decoder(wu))
+# print(metar_decoder(lipe))
+# print(metar_decoder(live))
+# print(metar_decoder(live_1))
+# print(metar_decoder(birk))
+# print(metar_decoder(llbg))
+# print(metar_decoder(licr))
+# print(metar_decoder(kslc))
+# print(metar_decoder(eidw))
+# print(metar_decoder(paed))
+# print(metar_decoder(klxv))
+# print(metar_decoder(klxv_1))
+# print(metar_decoder(klxv_2))
+# print(metar_decoder(kccu))
+# print(metar_decoder(lbbg))
+# print(metar_decoder(kttn))
