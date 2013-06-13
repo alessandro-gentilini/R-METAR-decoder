@@ -794,9 +794,26 @@ get_metar = function(ICAO_ID)
   return(metar_decoder(ans[2]))
 }
 
+get_metar_cycle = function()
+{
+  url = "http://weather.noaa.gov/pub/data/observations/metar/cycles/00Z.TXT"
+  ans=scan(what=character(),text=getURL(url),sep="\n")
+  for ( s in ans ) {
+    if ( grepl("[A-Z][A-Z][A-Z][A-Z].*",s)){
+      print(metar_decoder(s))    
+    }
+  }
+}
 
+# gives problem because four clouds CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT
+
+print(get_metar("LIPE"))
 print(get_metar("LIVE"))
 print(get_metar("KLXV"))
+print(get_metar("KCCU"))
+print(get_metar("LBBG"))
+print(get_metar("PAED"))
+print(get_metar("BIRK"))
 
 # print(metar_decoder(wu))
 # print(metar_decoder(lipe))
