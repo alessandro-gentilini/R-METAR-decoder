@@ -32,6 +32,7 @@
 # September 2005
 # http://www.ofcm.gov/fmh-1/pdf/FMH1.pdf (accessed 20130529)
 
+library(RCurl)
 
 # Some METAR samples:
 
@@ -675,6 +676,8 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   
   
   # As per WMO 15.9.1.3 up to three clouds can be reported
+  # Some METARs has four clouds, like this one (20130614)
+  # CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT
   cloud_amount_1 = NA
   cloud_height_1 = NA
   cloud_abbreviation_1 = NA
@@ -735,6 +738,26 @@ metar_decoder = function(metar_string,low_visibility=1/32)
     vertical_visibility_unavailable_3 = df$vertical_visibility_unavailable    
   }    
   
+  cloud_amount_4 = NA
+  cloud_height_4 = NA
+  cloud_abbreviation_4 = NA
+  VV_4 = NA
+  vertical_visibility_4 = NA    
+  cloud_unobservable_4 = NA
+  convective_cloud_4 = NA
+  vertical_visibility_unavailable_4 = NA
+  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 4")
+  if ( df$found_optional_field ) {
+    cloud_amount_4 = df$amount
+    cloud_height_4 = df$height
+    cloud_abbreviation_4 = df$cloud_abbreviation
+    VV_4 = df$VV
+    vertical_visibility_4 = df$vertical_visibility        
+    cloud_unobservable_4 = df$unobservable
+    convective_cloud_4 = df$convective_cloud
+    vertical_visibility_unavailable_4 = df$vertical_visibility_unavailable    
+  }     
+  
   temperature = NA
   dew_point = NA
   # per FMH 12.6.10 temperature/dew point can be not available
@@ -770,18 +793,23 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     cloud_amount_1,cloud_height_1,cloud_abbreviation_1,
                     cloud_amount_2,cloud_height_2,cloud_abbreviation_2,
                     cloud_amount_3,cloud_height_3,cloud_abbreviation_3,
+                    cloud_amount_4,cloud_height_4,cloud_abbreviation_4,
                     VV_1,vertical_visibility_1,
                     VV_2,vertical_visibility_2,
                     VV_3,vertical_visibility_3,
+                    VV_4,vertical_visibility_4,
                     cloud_unobservable_1,
                     cloud_unobservable_2,
                     cloud_unobservable_3,
+                    cloud_unobservable_4,
                     convective_cloud_1,
                     convective_cloud_2,
                     convective_cloud_3,
+                    convective_cloud_4,
                     vertical_visibility_unavailable_1,
                     vertical_visibility_unavailable_2,
                     vertical_visibility_unavailable_3,
+                    vertical_visibility_unavailable_4,
                     temperature,dew_point,
                     pressure_UOM,pressure
                     ))
@@ -807,13 +835,15 @@ get_metar_cycle = function()
 
 # gives problem because four clouds CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT
 
-print(get_metar("LIPE"))
-print(get_metar("LIVE"))
-print(get_metar("KLXV"))
-print(get_metar("KCCU"))
-print(get_metar("LBBG"))
-print(get_metar("PAED"))
-print(get_metar("BIRK"))
+# print(get_metar("LIPE"))
+# print(get_metar("LIVE"))
+# print(get_metar("KLXV"))
+# print(get_metar("KCCU"))
+# print(get_metar("LBBG"))
+# print(get_metar("PAED"))
+# print(get_metar("BIRK"))
+
+print(metar_decoder("CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT"))
 
 # print(metar_decoder(wu))
 # print(metar_decoder(lipe))
