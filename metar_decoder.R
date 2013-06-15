@@ -34,6 +34,13 @@
 
 library(RCurl)
 
+dbgprint = function(s)
+{
+  cat(s)
+}
+
+WMO_strict = F
+
 # Some METAR samples:
 
 # http://www.wunderground.com/metarFAQ.asp (accessed 20130529)
@@ -95,7 +102,7 @@ extract_COR = function(field)
 
 recognize_ICAO_location_indicator = function(field)
 {
-  return(grepl("[A-Z][A-Z][A-Z][A-Z]",field))
+  return(grepl("[A-Z][0-9A-Z][0-9A-Z][0-9A-Z]",field))
 }
 
 extract_ICAO_location_indicator = function(field)
@@ -149,13 +156,19 @@ recognize_wind = function(field)
           grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT" , field) ||
           grepl("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", field) 
           
+          # as per the following METAR uom is omitted after 00000
+          #"2013/06/14 23:50"
+          #"KAPG 142350Z 00000 7SM SCT050 25/13 A2989 RMK LAST"
+          # This is in contrast with FMH 12.6.5d which prescribes 00000KT and WMO 15.5.4 which prescribes 00000KT or 00000MPS
+          || grepl("00000",field,fixed=T)
+          
   )
 }
 
 extract_wind = function(field)
 {
   CALM = F
-  UOM = "MPS"
+  UOM = NA
   speed = NA
   direction = NA
   VRB = F
@@ -171,7 +184,7 @@ extract_wind = function(field)
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])KT", field)
     direction = as.numeric(regmatches(field,res)[[1]][[2]])
     speed = as.numeric(regmatches(field,res)[[1]][[3]])
-    UOM = "MPS"
+    UOM = "KT"
   } else if( grepl("[0-9][0-9][0-9][0-9][0-9]MPS", field) ) {
     res = regexec("([0-9][0-9][0-9])([0-9][0-9])MPS", field)
     direction = as.numeric(regmatches(field,res)[[1]][[2]])
@@ -215,6 +228,8 @@ extract_wind = function(field)
     gust_speed = as.numeric(regmatches(field,res)[[1]][[4]])
     GUST = T
     UOM = "MPS"
+  } else if(grepl("00000",field,fixed=T)){
+    CALM=T
   }
   return(data.frame(CALM,UOM,speed,direction,VRB,GUST,gust_speed))
 }
@@ -235,7 +250,7 @@ extract_wind_direction_variation = function(field)
 
 recognize_visibility = function(field)
 {
-  return(grepl("[0-9][0-9][0-9][0-9]",field)||
+  return(grepl("^[0-9][0-9][0-9][0-9]",field)||
            grepl(".*SM",field) ||
            grepl("M.*SM",field) ||
            grepl("CAVOK",field,fixed=T))
@@ -251,15 +266,15 @@ extract_visibility = function(field)
     res = regexec("([0-9][0-9][0-9][0-9])",field)
     visibility = as.numeric(regmatches(field,res)[[1]][[2]])
     UOM = "M"
-  } else if (grepl(".*SM",field)) {
-    res = regexec("(.*)SM",field)
-    visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
-    UOM = "SM"
   } else if ( grepl("M(.*)SM",field)) {
     res = regexec("M(.*)SM",field)
     visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
     UOM = "SM"    
     LESS_THAN = T
+  } else if (grepl(".*SM",field)) {
+    res = regexec("(.*)SM",field)
+    visibility = as.numeric(eval(parse(text=regmatches(field,res)[[1]][[2]])))
+    UOM = "SM"
   } else if ( grepl("CAVOK",field,fixed=T)){
     CAVOK = T
   }
@@ -343,7 +358,6 @@ extract_weather = function(field)
   intensity = set_NA_if_empty_string(regmatches(field,res)[[1]][[2]])
   descriptor = set_NA_if_empty_string(regmatches(field,res)[[1]][[3]])
   phenomena = set_NA_if_empty_string(regmatches(field,res)[[1]][[4]])
-  print(data.frame(intensity,descriptor,phenomena))
   return(data.frame(intensity,descriptor,phenomena))
 }
 
@@ -442,18 +456,21 @@ extract_altimeter = function(field)
   return(data.frame(UOM,pressure))
 }
 
-parse_field = function(field,index,recognizer,extractor,is_compulsory,field_description)
+parse_field = function(groups,index,recognizer,extractor,is_compulsory,field_description)
 {
   data = NA
   found_optional_field = F
-  if ( recognizer(field) ) {
-    data = extractor(field)
-    index = index + 1
-    found_optional_field = T
-  } else {
-    if ( is_compulsory ) {
-      stop(sprintf("Expected compulsory field '%s', found '%s'.",field_description,field))
-    }  
+  if ( index <= length(groups) ) {
+    field = groups[index]
+    if ( recognizer(field) ) {
+      data = extractor(field)
+      index = index + 1
+      found_optional_field = T
+    } else {
+      if ( is_compulsory ) {
+        stop(sprintf("Expected compulsory field '%s', found '%s'.",field_description,field))
+      }  
+    }
   }
   return(data.frame(data,index,found_optional_field))
 }
@@ -485,57 +502,74 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   groups = scan(what=character(),text=metar_string)
   
   METAR = NA
-  df = parse_field(groups[1],1,recognize_METAR,extract_METAR,F, "METAR")
+  df = parse_field(groups,1,recognize_METAR,extract_METAR,F, "METAR")
   METAR = df$data
   
   SPECI = NA
-  df = parse_field(groups[df$index],df$index,recognize_SPECI,extract_SPECI,F, "SPECI")
+  df = parse_field(groups,df$index,recognize_SPECI,extract_SPECI,F, "SPECI")
   SPECI = df$data
   
   COR = NA
-  df = parse_field(groups[df$index],df$index,recognize_COR,extract_COR,F, "COR")
+  df = parse_field(groups,df$index,recognize_COR,extract_COR,F, "COR")
   COR = df$data
   
   ICAO_location_indicator = NA
-  df = parse_field(groups[df$index],df$index,recognize_ICAO_location_indicator,extract_ICAO_location_indicator,T, "ICAO_location_indicator")
+  df = parse_field(groups,df$index,recognize_ICAO_location_indicator,extract_ICAO_location_indicator,T, "ICAO_location_indicator")
   ICAO_location_indicator = df$data
   
   day = NA
   hour = NA
   minute = NA
-  df = parse_field(groups[df$index],df$index,recognize_timestamp,extract_timestamp,T, "timestamp")
+  df = parse_field(groups,df$index,recognize_timestamp,extract_timestamp,T, "timestamp")
   day = df$dd
   hour = df$hh
   minute = df$mm
   
   NIL = NA
-  df = parse_field(groups[df$index],df$index,recognize_NIL,extract_NIL,F, "NIL")
+  df = parse_field(groups,df$index,recognize_NIL,extract_NIL,F, "NIL")
   NIL = df$data  
   
-  AUTO = NA
-  df = parse_field(groups[df$index],df$index,recognize_AUTO,extract_AUTO,F, "AUTO")
-  AUTO = df$data  
+  AUTO = F
+  df = parse_field(groups,df$index,recognize_AUTO,extract_AUTO,F, "AUTO")
+  if ( df$found_optional_field ) {
+    AUTO = df$data  
+  }
   
   CALM = F
-  UOM = "MPS"
+  wind_UOM = NA
   speed = NA
   direction = NA
   VRB = F
   GUST = F
   gust_speed = NA
-  df = parse_field(groups[df$index],df$index,recognize_wind,extract_wind,T, "Wind")
-  CALM = df$CALM
-  wind_UOM = df$UOM
-  speed = df$speed
-  direction = df$direction
-  VRB = df$VRB
-  GUST = df$GUST
-  gust_speed = df$gust_speed
+  # In the following metar, wind is missing
+  # 2013/06/14 23:53
+  # KLCH 142353Z CLR A2986 RMK AO2 LTG DSNT NE AND E SLP121 58011 $  
+  #compulsory=!AUTO && T
+  compulsory=F
+  df = parse_field(groups,df$index,recognize_wind,extract_wind,compulsory, "Wind")
+  if ( compulsory ) {
+    CALM = df$CALM
+    wind_UOM = df$UOM
+    speed = df$speed
+    direction = df$direction
+    VRB = df$VRB
+    GUST = df$GUST
+    gust_speed = df$gust_speed    
+  } else if ( df$found_optional_field ) {
+    CALM = df$CALM
+    wind_UOM = df$UOM
+    speed = df$speed
+    direction = df$direction
+    VRB = df$VRB
+    GUST = df$GUST
+    gust_speed = df$gust_speed    
+  }
   
   WIND_DIRECTION_VARIATION = F
   extreme_wind_direction_n = NA
   extreme_wind_direction_x = NA
-  df = parse_field(groups[df$index],df$index,recognize_wind_direction_variation,extract_wind_direction_variation,F,"wind direction variation")
+  df = parse_field(groups,df$index,recognize_wind_direction_variation,extract_wind_direction_variation,F,"wind direction variation")
   if ( df$found_optional_field ) {
     WIND_DIRECTION_VARIATION = df$WIND_DIRECTION_VARIATION
     extreme_wind_direction_n = df$extreme_wind_direction_n
@@ -546,11 +580,24 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   visibility_UOM = NA
   CAVOK = F
   LESS_THAN = F
-  df = parse_field(groups[df$index],df$index,recognize_visibility,extract_visibility,T,"visibility")
-  visibility = df$visibility
-  visibility_UOM = df$UOM
-  CAVOK = df$CAVOK
-  LESS_THAN = df$LESS_THAN
+  # In the following metar, visibility is missing
+  # 2013/06/14 23:53
+  # KLCH 142353Z CLR A2986 RMK AO2 LTG DSNT NE AND E SLP121 58011 $  
+  #compulsory=!AUTO && T
+  compulsory=F
+  df = parse_field(groups,df$index,recognize_visibility,extract_visibility,compulsory,"visibility")
+  if ( compulsory ) {
+    visibility = df$visibility
+    visibility_UOM = df$UOM
+    CAVOK = df$CAVOK
+    LESS_THAN = df$LESS_THAN
+  } else if ( df$found_optional_field ) {
+    visibility = df$visibility
+    visibility_UOM = df$UOM
+    CAVOK = df$CAVOK
+    LESS_THAN = df$LESS_THAN    
+  }
+  
   
   # todo: Implement WMO 15.6.2
   
@@ -564,7 +611,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_1 = NA
   extreme_value_2_1 = NA
   tendency_12_1 = NA
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 1")
+  df = parse_field(groups,df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 1")
   if ( df$found_optional_field ) {
     runway_1 = df$runway
     runway_visual_range_1 = df$runway_visual_range   
@@ -586,7 +633,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_2 = NA
   extreme_value_2_2 = NA
   tendency_12_2 = NA  
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 2")
+  df = parse_field(groups,df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 2")
   if ( df$found_optional_field ) {
     runway_2 = df$runway
     runway_visual_range_2 = df$runway_visual_range   
@@ -608,7 +655,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_3 = NA
   extreme_value_2_3 = NA
   tendency_12_3 = NA    
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 3")
+  df = parse_field(groups,df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 3")
   if ( df$found_optional_field ) {
     runway_3 = df$runway
     runway_visual_range_3 = df$runway_visual_range   
@@ -630,7 +677,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   extreme_value_1_4 = NA
   extreme_value_2_4 = NA
   tendency_12_4 = NA   
-  df = parse_field(groups[df$index],df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 4")
+  df = parse_field(groups,df$index,recognize_runway_visual_range,extract_runway_visual_range,F,"runway visual range 4")
   if ( df$found_optional_field ) {
     runway_4 = df$runway
     runway_visual_range_4 = df$runway_visual_range   
@@ -647,7 +694,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   intensity_1 = NA
   descriptor_1 = NA
   phenomena_1 = NA
-  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 1")
+  df= parse_field(groups,df$index,recognize_weather,extract_weather,F,"weather 1")
   if ( df$found_optional_field ) {
     intensity_1 = df$intensity
     descriptor_1 = df$descriptor
@@ -657,7 +704,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   intensity_2 = NA
   descriptor_2 = NA
   phenomena_2 = NA
-  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 2")
+  df= parse_field(groups,df$index,recognize_weather,extract_weather,F,"weather 2")
   if ( df$found_optional_field ) {
     intensity_2 = df$intensity
     descriptor_2 = df$descriptor
@@ -667,7 +714,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   intensity_3 = NA
   descriptor_3 = NA
   phenomena_3 = NA
-  df= parse_field(groups[df$index],df$index,recognize_weather,extract_weather,F,"weather 3")
+  df= parse_field(groups,df$index,recognize_weather,extract_weather,F,"weather 3")
   if ( df$found_optional_field ) {
     intensity_3 = df$intensity
     descriptor_3 = df$descriptor
@@ -686,7 +733,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   cloud_unobservable_1 = NA
   convective_cloud_1 = NA
   vertical_visibility_unavailable_1 = NA
-  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 1")
+  df= parse_field(groups,df$index,recognize_clouds,extract_clouds,F,"clouds 1")
   if ( df$found_optional_field ) {
     cloud_amount_1 = df$amount
     cloud_height_1 = df$height
@@ -706,7 +753,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   cloud_unobservable_2 = NA
   convective_cloud_2 = NA
   vertical_visibility_unavailable_2 = NA
-  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 2")
+  df= parse_field(groups,df$index,recognize_clouds,extract_clouds,F,"clouds 2")
   if ( df$found_optional_field ) {
     cloud_amount_2 = df$amount
     cloud_height_2 = df$height
@@ -726,7 +773,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   cloud_unobservable_3 = NA
   convective_cloud_3 = NA
   vertical_visibility_unavailable_3 = NA
-  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 3")
+  df= parse_field(groups,df$index,recognize_clouds,extract_clouds,F,"clouds 3")
   if ( df$found_optional_field ) {
     cloud_amount_3 = df$amount
     cloud_height_3 = df$height
@@ -746,7 +793,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   cloud_unobservable_4 = NA
   convective_cloud_4 = NA
   vertical_visibility_unavailable_4 = NA
-  df= parse_field(groups[df$index],df$index,recognize_clouds,extract_clouds,F,"clouds 4")
+  df= parse_field(groups,df$index,recognize_clouds,extract_clouds,F,"clouds 4")
   if ( df$found_optional_field ) {
     cloud_amount_4 = df$amount
     cloud_height_4 = df$height
@@ -761,16 +808,21 @@ metar_decoder = function(metar_string,low_visibility=1/32)
   temperature = NA
   dew_point = NA
   # per FMH 12.6.10 temperature/dew point can be not available
-  df= parse_field(groups[df$index],df$index,recognize_temperature,extract_temperature,F,"temperature")
-  temperature = df$temperature
-  dew_point = df$dew_point
+  df= parse_field(groups,df$index,recognize_temperature,extract_temperature,F,"temperature")
+  if ( df$found_optional_field ) {
+    temperature = df$temperature
+    dew_point = df$dew_point
+  }
   
   pressure_UOM = NA
   pressure = NA
   # per FMH 12.6.10 temperature/dew point can be not available
-  df= parse_field(groups[df$index],df$index,recognize_altimeter,extract_altimeter,T,"pressure")
-  pressure_UOM = df$UOM
-  pressure = df$pressure  
+  df= parse_field(groups,df$index,recognize_altimeter,extract_altimeter,F,"pressure")
+  if ( df$found_optional_field ) {
+    pressure_UOM = df$UOM
+    pressure = df$pressure  
+  }
+  
   
   
   return(data.frame(METAR,
@@ -778,18 +830,18 @@ metar_decoder = function(metar_string,low_visibility=1/32)
                     COR,
                     ICAO_location_indicator,
                     day,hour,minute,
-                    NIL,
-                    AUTO,
-                    CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
-                    WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
-                    visibility,visibility_UOM,CAVOK,LESS_THAN,
-                    runway_1,extreme_value_1,runway_visual_range_1,tendency_1,runway_visual_range_variation_1_1,runway_visual_range_variation_2_1,extreme_value_1_1,extreme_value_2_1,tendency_12_1,
-                    runway_2,extreme_value_2,runway_visual_range_2,tendency_2,runway_visual_range_variation_1_2,runway_visual_range_variation_2_2,extreme_value_1_2,extreme_value_2_2,tendency_12_2,
-                    runway_3,extreme_value_3,runway_visual_range_3,tendency_3,runway_visual_range_variation_1_3,runway_visual_range_variation_2_3,extreme_value_1_3,extreme_value_2_3,tendency_12_3,
-                    runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4,
-                    intensity_1,descriptor_1,phenomena_1,
-                    intensity_2,descriptor_2,phenomena_2,
-                    intensity_3,descriptor_3,phenomena_3,
+                     NIL,
+                     AUTO,
+                     CALM,wind_UOM,speed,direction,VRB,GUST,gust_speed,
+                     WIND_DIRECTION_VARIATION,extreme_wind_direction_n,extreme_wind_direction_x,
+                     visibility,visibility_UOM,CAVOK,LESS_THAN,
+                     runway_1,extreme_value_1,runway_visual_range_1,tendency_1,runway_visual_range_variation_1_1,runway_visual_range_variation_2_1,extreme_value_1_1,extreme_value_2_1,tendency_12_1,
+                     runway_2,extreme_value_2,runway_visual_range_2,tendency_2,runway_visual_range_variation_1_2,runway_visual_range_variation_2_2,extreme_value_1_2,extreme_value_2_2,tendency_12_2,
+                     runway_3,extreme_value_3,runway_visual_range_3,tendency_3,runway_visual_range_variation_1_3,runway_visual_range_variation_2_3,extreme_value_1_3,extreme_value_2_3,tendency_12_3,
+                     runway_4,extreme_value_4,runway_visual_range_4,tendency_4,runway_visual_range_variation_1_4,runway_visual_range_variation_2_4,extreme_value_1_4,extreme_value_2_4,tendency_12_4,
+                     intensity_1,descriptor_1,phenomena_1,
+                     intensity_2,descriptor_2,phenomena_2,
+                     intensity_3,descriptor_3,phenomena_3,
                     cloud_amount_1,cloud_height_1,cloud_abbreviation_1,
                     cloud_amount_2,cloud_height_2,cloud_abbreviation_2,
                     cloud_amount_3,cloud_height_3,cloud_abbreviation_3,
@@ -826,10 +878,13 @@ get_metar_cycle = function()
 {
   url = "http://weather.noaa.gov/pub/data/observations/metar/cycles/00Z.TXT"
   ans=scan(what=character(),text=getURL(url),sep="\n")
+  prev = ""
   for ( s in ans ) {
     if ( grepl("[A-Z][A-Z][A-Z][A-Z].*",s)){
+      print(prev)
       print(metar_decoder(s))    
     }
+    prev = s
   }
 }
 
@@ -844,6 +899,15 @@ get_metar_cycle = function()
 # print(get_metar("BIRK"))
 
 print(metar_decoder("CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT"))
+print(metar_decoder("CWZO 142345Z AUTO 19009KT RMK AO1 "))
+print(metar_decoder("KLZU 142345Z 00000KT 10SM CLR 27/14 A2995 RMK ATIS C JW "))
+print(metar_decoder("KY63 142355Z AUTO 13014G17KT 10SM BKN050 BKN060 25/16 A2980 RMK AO2"))
+print(metar_decoder("K1P1 142355Z AUTO 32007KT 10SM SCT110 22/09 A2973 RMK AO2 T02210090 10252 20221"))
+print(metar_decoder("KCQW 142355Z AUTO 10SM CLR 25/13 A2995 RMK AO2"))
+print(metar_decoder("KAPG 142350Z 00000 7SM SCT050 25/13 A2989 RMK LAST"))
+print(metar_decoder("PATC 142345Z AUTO 17020KT M1/4SM -RA FG VV002 04/04 A3008 RMK AO2 PK WND 17026/2331 SLP189"))
+print(metar_decoder("KLCH 142353Z CLR A2986 RMK AO2 LTG DSNT NE AND E SLP121 58011 $"))
+print(metar_decoder("KPHF 142354Z AUTO A2993"))
 
 # print(metar_decoder(wu))
 # print(metar_decoder(lipe))
