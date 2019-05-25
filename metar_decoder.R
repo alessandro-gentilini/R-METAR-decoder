@@ -869,7 +869,7 @@ metar_decoder = function(metar_string,low_visibility=1/32)
 
 get_metar = function(ICAO_ID)
 {
-  url = sprintf("http://weather.noaa.gov/pub/data/observations/metar/stations/%s.TXT",ICAO_ID)
+  url = sprintf("https://tgftp.nws.noaa.gov/data/observations/metar/stations/%s.TXT",ICAO_ID)
   ans=scan(what=character(),text=getURL(url),sep="\n")
   return(metar_decoder(ans[2]))
 }
