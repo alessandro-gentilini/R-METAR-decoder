@@ -876,7 +876,7 @@ get_metar = function(ICAO_ID)
 
 get_metar_cycle = function()
 {
-  url = "http://weather.noaa.gov/pub/data/observations/metar/cycles/00Z.TXT"
+  url = "https://tgftp.nws.noaa.gov/data/observations/metar/cycles/08Z.TXT"
   ans=scan(what=character(),text=getURL(url),sep="\n")
   prev = ""
   for ( s in ans ) {
