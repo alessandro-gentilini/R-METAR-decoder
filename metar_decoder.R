@@ -41,31 +41,6 @@ dbgprint = function(s)
 
 WMO_strict = F
 
-# Some METAR samples:
-
-# http://www.wunderground.com/metarFAQ.asp (accessed 20130529)
-wu = "METAR  KORD	041656Z	19020G26KT	6SM	-SHRA	BKN070	12/08	A3016	RMK AO2"
-
-# http://aviationweather.gov/adds/metars/ 
-lipe = "LIPE 282020Z 13006KT 9999 FEW080 15/13 Q1004"
-live = "LIVE 281955Z 16005KT 9999 BKN030 08/05 Q1004 RMK BKN VIS MIN 9999"
-live_1 = "LIVE 291055Z 02006KT 3000 -RA BR SCT010 BKN020 03/M01 Q0999 RMK OVC VIS MIN 3000"
-birk = "BIRK 282000Z 17009KT 9999 FEW032 SCT050 10/04 Q1009"
-llbg = "LLBG 282020Z VRB03KT CAVOK 22/16 Q1016 NOSIG"
-licr = "LICR 281950Z 02016KT 9999 FEW035 20/13 Q1004 RMK VIS MIN 9999"
-kslc = "KSLC 282040Z 29006KT 5SM +RA BR SCT011 BKN020 OVC041 12/10 A2983 RMK AO2 P0012"
-eidw = "EIDW 282030Z 35007KT 9999 FEW015 BKN100 09/07 Q1004 NOSIG"
-paed = "PAED 291155Z AUTO 00000KT 10SM CLR 11/06 A2966 RMK AO2 SLP045 T01090057 10184 20105 51004"
-klxv = "KLXV 291130Z AUTO 07005KT 1/4SM +SN FG VV010 00/M01 A2991 RMK AO2 P0002 FZRANO"
-klxv_1 = "KLXV 291114Z AUTO 36003KT 3/4SM -SN BKN019 OVC035 01/M02 A2992 RMK AO2 P0000 FZRANO"
-klxv_2 = "KLXV 291110Z AUTO 33004KT 2 1/2SM -SN BKN024 OVC035 01/M02 A2991 RMK AO2 P0000"
-kccu = "KCCU 291112Z AUTO 24009KT 180V280 1 3/4SM -SN BKN002 BKN006 OVC011 01/M01 A2998 RMK AO2 LTG DSNT NE"
-
-# http://en.wikipedia.org/wiki/METAR (accessed 20130602)
-lbbg = "METAR LBBG 041600Z 12003MPS 310V290 1400 R04/P1500N R22/P1500U +SN BKN022 OVC050 M04/M07 Q1020 NOSIG 9949//91="
-# http://en.wikipedia.org/wiki/METAR (accessed 20130612)
-kttn = "METAR KTTN 051853Z 04011KT 1/2SM VCTS SN FZFG BKN003 OVC010 M02/M02 A3006 RMK AO2 TSB40 SLP176 P0002 T10171017="
-
 FMH_table_12_1_visibility = c("M1/4","1/4","1/2","3/4","1","1 1/4","1 1/2","1 3/4","2","2 1/2","3","4","5","6","7","8","9","10",
                               "0","1/16","1/8","3/16","1/4","5/16","3/8","1/2","5/8","3/4","7/8","1","1 1/8","1 1/4","1 3/8","1 1/2","1 5/8","1 3/4","1 7/8","2","2 1/4","2 1/2","2 3/4","3","4","5","6","7","8","9","10","11","12","13","14","15","20","25","30","35")
 options(error=traceback)
@@ -887,41 +862,3 @@ get_metar_cycle = function()
     prev = s
   }
 }
-
-# gives problem because four clouds CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT
-
-# print(get_metar("LIPE"))
-# print(get_metar("LIVE"))
-# print(get_metar("KLXV"))
-# print(get_metar("KCCU"))
-# print(get_metar("LBBG"))
-# print(get_metar("PAED"))
-# print(get_metar("BIRK"))
-
-print(metar_decoder("CYYB 122345Z 31007KT 15SM FEW030TCU BKN060 BKN100 BKN250 16/13 A2980 RETS RMK TCU1SC4AC1CI1 PRESFR SLP093 DENSITY ALT 1700FT"))
-print(metar_decoder("CWZO 142345Z AUTO 19009KT RMK AO1 "))
-print(metar_decoder("KLZU 142345Z 00000KT 10SM CLR 27/14 A2995 RMK ATIS C JW "))
-print(metar_decoder("KY63 142355Z AUTO 13014G17KT 10SM BKN050 BKN060 25/16 A2980 RMK AO2"))
-print(metar_decoder("K1P1 142355Z AUTO 32007KT 10SM SCT110 22/09 A2973 RMK AO2 T02210090 10252 20221"))
-print(metar_decoder("KCQW 142355Z AUTO 10SM CLR 25/13 A2995 RMK AO2"))
-print(metar_decoder("KAPG 142350Z 00000 7SM SCT050 25/13 A2989 RMK LAST"))
-print(metar_decoder("PATC 142345Z AUTO 17020KT M1/4SM -RA FG VV002 04/04 A3008 RMK AO2 PK WND 17026/2331 SLP189"))
-print(metar_decoder("KLCH 142353Z CLR A2986 RMK AO2 LTG DSNT NE AND E SLP121 58011 $"))
-print(metar_decoder("KPHF 142354Z AUTO A2993"))
-
-# print(metar_decoder(wu))
-# print(metar_decoder(lipe))
-# print(metar_decoder(live))
-# print(metar_decoder(live_1))
-# print(metar_decoder(birk))
-# print(metar_decoder(llbg))
-# print(metar_decoder(licr))
-# print(metar_decoder(kslc))
-# print(metar_decoder(eidw))
-# print(metar_decoder(paed))
-# print(metar_decoder(klxv))
-# print(metar_decoder(klxv_1))
-# print(metar_decoder(klxv_2))
-# print(metar_decoder(kccu))
-# print(metar_decoder(lbbg))
-# print(metar_decoder(kttn))
