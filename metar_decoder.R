@@ -470,7 +470,7 @@ fix_white_space_in_FMH_visibility = function(metar_string)
 
 
 
-metar_decoder = function(metar_string,low_visibility=1/32)
+metar_string_decoder = function(metar_string,low_visibility=1/32)
 {
   metar_string = fix_white_space_in_FMH_visibility(metar_string)
   print(metar_string)
@@ -861,4 +861,14 @@ get_metar_cycle = function()
     }
     prev = s
   }
+}
+
+metar_decoder = function(metar_string_vector)
+{
+  df = data.frame()
+  for (s in metar_string_vector) {
+    df1 = metar_string_decoder(s)
+    df <- rbind(df,df1)
+  }
+  df
 }
