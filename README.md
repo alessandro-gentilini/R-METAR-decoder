@@ -3,7 +3,7 @@ R-METAR-decoder
 
 A METAR decoder written in R.
 
-Status: the decoder works up to the altimeter (or QNH) group.
+Status: the decoder works up to the altimeter (or `QNH`) group.
 An extended test suite is needed.
 
 The description of METAR decodification is based on two manuals, there are two main METAR formats, I call them the _international_ format and the _USA_ format; there are differences in the two formats for example regarding the units of measure (where the international format prescribes the SI units while the USA format prescribe different units) or the abbreviations.
