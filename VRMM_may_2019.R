@@ -28,3 +28,11 @@ VRMMs=c(
 
 
 df = metar_decoder(VRMMs)
+
+df$timestamp <- as.POSIXlt(sprintf("2019-05-%02d %02d:%02d",df$day,df$hour,df$minute),tz="UTC")
+
+plot(df$timestamp,df$temperature,ylab = "Temperatuire in Celsius degree",xlab = "2019-05-24 and 2019-05-25, UTC time",main = "Temperature in Velana International Airport, Malé, Maldives")
+
+
+
+
