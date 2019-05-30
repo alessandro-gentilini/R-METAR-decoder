@@ -45,3 +45,8 @@ stopifnot(df$visibility==4, df$visibility_UOM=='SM')
 # second test, In the following, visibility is parsed as 1 when the original METAR says "1 3/4 SM":
 df <- metar_string_decoder('KDCA 121244Z 05010KT 1 3/4SM R01/6000VP6000FT -RA BR OVC007 14/12 A2978 RMK AO2 P0002 T01390122')
 stopifnot(df$visibility==1.75, df$visibility_UOM=='SM')
+
+# Test from https://github.com/prcwiek/pmetar/issues/1
+# The following parses the temperature as -273 degrees:
+df <- metar_string_decoder('KDCA 070355Z AUTO 20005KT 10SM CLR A3010 RMK T0180 MADISHF')
+stopifnot(is.na(df$temperature))
