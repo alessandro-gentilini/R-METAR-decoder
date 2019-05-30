@@ -42,3 +42,6 @@ print(metar_string_decoder("KPHF 142354Z AUTO A2993"))
 # first test, In the following, visibility is parsed as NA when the original METAR says 4 statute miles ("4SM"):
 df <- metar_string_decoder('KDCA 041400Z AUTO 07004KT 4SM HZ OVC009 20/17 A2987 RMK T02000170 MADISHF')
 stopifnot(df$visibility==4, df$visibility_UOM=='SM')
+# second test, In the following, visibility is parsed as 1 when the original METAR says "1 3/4 SM":
+df <- metar_string_decoder('KDCA 121244Z 05010KT 1 3/4SM R01/6000VP6000FT -RA BR OVC007 14/12 A2978 RMK AO2 P0002 T01390122')
+stopifnot(df$visibility==1.75, df$visibility_UOM=='SM')
